@@ -269,7 +269,6 @@ input, select, textarea, button {
         font-size: 13px;
     }
 
-    /* Keep final-guess controls comfortable for thumbs */
     #finalSelect {
         min-height: 52px;
     }
@@ -308,7 +307,6 @@ input, select, textarea, button {
     }
 }
 
-/* Prevent accidental horizontal scrolling from long names/messages */
 #chatBox, #spectatorChat, #deadChat, #rankingsList, #voteForm,
 #finalOpponent, .winner-names {
     overflow-wrap: anywhere;
@@ -321,17 +319,80 @@ input, select, textarea, button {
 
 <div class="container">
 
-    <div class="theme-selector">
-        <button class="theme-btn" onclick="setTheme('')">نجمي 🔮</button>
-        <button class="theme-btn" onclick="setTheme('neon')">نيون 🌿</button>
-        <button class="theme-btn" onclick="setTheme('blue')">أزرق 🌊</button>
-        <button class="theme-btn" onclick="setTheme('red')">أحمر 🔥</button>
-        <button class="theme-btn" onclick="setTheme('cyan')">سماوي 💎</button>
-        <button class="theme-btn" onclick="setTheme('pink')">وردي 🌸</button>
-        <button class="theme-btn" onclick="setTheme('orange')">برتقالي 🟠</button>
-        <button class="theme-btn" onclick="setTheme('gold')">ذهبي 👑</button>
-        <button class="theme-btn" onclick="setTheme('matrix')">ماتريكس 🟢</button>
-        <button class="theme-btn" onclick="setTheme('dark')">داكن 🌑</button>
+    <!-- زر فتح الإعدادات المتقدمة في الأعلى -->
+    <button id="openSettingsBtn" class="settings-trigger-btn">⚙️ الإعدادات المتقدمة والثيمات</button>
+
+    <!-- نافذة الإعدادات المتقدمة (Modal) -->
+    <div id="settingsModal" class="avatar-modal hidden">
+        <div class="avatar-modal-card">
+            <button id="closeSettingsBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
+            <h3>⚙️ لوحة الإعدادات والتحكم</h3>
+            <p class="avatar-modal-help">خصص أطوال الشاشة، الثيمات، وحساب التسجيل الخاص بك من مكان واحد.</p>
+            
+            <!-- قسم حساب المستخدم والتسجيل -->
+            <div class="settings-section">
+                <h4>👤 حساب المستخدم والتسجيل</h4>
+                <div class="player-profile-card" style="margin: 10px 0; text-align: right;">
+                    <div class="profile-header">
+                        <h3 id="profile-name-display" style="margin:0; font-size:15px;">مستوى الموسم</h3>
+                        <span class="season-badge" style="font-size:12px;">الموسم 1</span>
+                    </div>
+                    <div class="season-bar-container" style="margin-top:8px;">
+                        <div class="season-bar-fill" id="xp-bar" style="width: 0%;"></div>
+                        <div class="level-text" style="font-size:11px;">مستوى <span id="current-level">1</span> ( <span id="current-xp">0</span> / 1000 XP )</div>
+                    </div>
+                </div>
+                <div class="google-login-box">
+                    <div id="googleSignInButton"></div>
+                    <div id="googleLoginStatus" class="google-login-status"></div>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- قسم ثيمات الموقع -->
+            <div class="settings-section">
+                <h4>🎨 ثيمات الموقع</h4>
+                <div class="theme-selector">
+                    <button class="theme-btn" onclick="setTheme('')">نجمي 🔮</button>
+                    <button class="theme-btn" onclick="setTheme('neon')">نيون 🌿</button>
+                    <button class="theme-btn" onclick="setTheme('blue')">أزرق 🌊</button>
+                    <button class="theme-btn" onclick="setTheme('red')">أحمر 🔥</button>
+                    <button class="theme-btn" onclick="setTheme('cyan')">سماوي 💎</button>
+                    <button class="theme-btn" onclick="setTheme('pink')">وردي 🌸</button>
+                    <button class="theme-btn" onclick="setTheme('orange')">برتقالي 🟠</button>
+                    <button class="theme-btn" onclick="setTheme('gold')">ذهبي 👑</button>
+                    <button class="theme-btn" onclick="setTheme('matrix')">ماتريكس 🟢</button>
+                    <button class="theme-btn" onclick="setTheme('dark')">داكن 🌑</button>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- قسم تخصيص الأطوال والأحجام -->
+            <div class="settings-section">
+                <h4>📏 تخصيص الأطوال والأحجام</h4>
+                
+                <div class="settings-control-group">
+                    <label for="chatHeightRange">ارتفاع مربع المحادثة: <span id="chatHeightVal">320px</span></label>
+                    <input type="range" id="chatHeightRange" min="200" max="600" step="10" value="320">
+                </div>
+
+                <div class="settings-control-group">
+                    <label for="fontSizeRange">حجم الخط العام: <span id="fontSizeVal">15px</span></label>
+                    <input type="range" id="fontSizeRange" min="12" max="20" step="1" value="15">
+                </div>
+
+                <div class="settings-control-group">
+                    <label for="cardWidthRange">عرض صندوق المحتوى الرئيسي: <span id="cardWidthVal">850px</span></label>
+                    <input type="range" id="cardWidthRange" min="600" max="1100" step="20" value="850">
+                </div>
+            </div>
+
+            <div class="avatar-modal-actions">
+                <button id="saveSettingsBtn" class="full-width">حفظ وتطبيق الإعدادات</button>
+            </div>
+        </div>
     </div>
 
     <!-- LOGIN -->
@@ -339,20 +400,6 @@ input, select, textarea, button {
         <div class="card">
             <h1>🎭 Secret Identity</h1>
             <p class="subtitle">اكشف هويات الآخرين واحمِ هويتك الخفية</p>
-            <div class="player-profile-card" style="margin: 15px 0; text-align: right;">
-                <div class="profile-header">
-                    <h3 id="profile-name-display" style="margin:0;">مستوى الموسم</h3>
-                    <span class="season-badge">الموسم 1</span>
-                </div>
-                <div class="season-bar-container">
-                    <div class="season-bar-fill" id="xp-bar" style="width: 0%;"></div>
-                    <div class="level-text">مستوى <span id="current-level">1</span> ( <span id="current-xp">0</span> / 1000 XP )</div>
-                </div>
-            </div>
-            <div class="google-login-box">
-                <div id="googleSignInButton"></div>
-                <div id="googleLoginStatus" class="google-login-status"></div>
-            </div>
 
             <div class="avatar-section">
                 <div class="avatar-circle selected" style="background-color:#ef4444" onclick="selectAvatar(this, '#ef4444')"></div>
