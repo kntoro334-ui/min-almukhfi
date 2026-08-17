@@ -74,16 +74,18 @@ io.on("connection", socket => {
 
         const room = rooms[roomCode];
 
-        const shuffledPlayers = [...room.players]
-            .sort(() => Math.random() - 0.5);
+        if (room.status === "LOBBY") {
+            const shuffledPlayers = [...room.players]
+                .sort(() => Math.random() - 0.5);
 
-        io.to(roomCode).emit("lobbyUpdated", {
-            players: shuffledPlayers.map(p => ({
-                id: p.id,
-                realName: p.realName
-            })),
-            playerCount: room.players.length
-        });
+            io.to(roomCode).emit("lobbyUpdated", {
+                players: shuffledPlayers.map(p => ({
+                    id: p.id,
+                    realName: p.realName
+                    })),
+                    playerCount: room.players.length
+                });
+            }
     });
 
     socket.on("joinRoom", data => {
@@ -238,7 +240,6 @@ io.on("connection", socket => {
         socket.emit("audioEvent", { name: "lock" });
 
         const alivePlayers = room.players.filter(p => p.isAlive);
-        const shuffledPlayers = [...alivePlayers].sort(() => Math.random() - 0.5);
         if (
             alivePlayers.length > 0 &&
             alivePlayers.every(p => Object.keys(p.votes).length > 0)
@@ -270,27 +271,31 @@ io.on("connection", socket => {
     });
 
     socket.on("disconnect", () => {
-        const roomCode = socket.roomCode;
+    const roomCode = socket.roomCode;
 
-        if (!roomCode || !rooms[roomCode]) return;
+    if (!roomCode || !rooms[roomCode]) return;
 
-        const room = rooms[roomCode];
+    const room = rooms[roomCode];
 
-        room.players = room.players.filter(p => p.id !== socket.id);
+    room.players = room.players.filter(p => p.id !== socket.id);
 
-        if (room.players.length === 0) {
-            clearInterval(room.timer);
-            delete rooms[roomCode];
-        } else {
-            if (room.host === socket.id && room.status === "LOBBY") {
-                const newHost = room.players.find(p => p.isAlive);
+    if (room.players.length === 0) {
+        clearInterval(room.timer);
+        delete rooms[roomCode];
+    } else {
+        if (room.host === socket.id && room.status === "LOBBY") {
+            const newHost = room.players.find(p => p.isAlive);
 
-                if (newHost) {
-                    room.host = newHost.id;
-                    io.to(newHost.id).emit("errorMsg", "👑 أصبحت أنت صاحب الغرفة.");
-                }
+            if (newHost) {
+                room.host = newHost.id;
+                io.to(newHost.id).emit(
+                    "errorMsg",
+                    "👑 أصبحت أنت صاحب الغرفة."
+                );
             }
+        }
 
+        if (room.status === "LOBBY") {
             const shuffledPlayers = [...room.players]
                 .sort(() => Math.random() - 0.5);
 
@@ -302,7 +307,7 @@ io.on("connection", socket => {
                 playerCount: room.players.length
             });
         }
-    });
+    }
 });
 
 function playSound(roomCode, name) {
