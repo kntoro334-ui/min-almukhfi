@@ -876,7 +876,15 @@ socket.on("phaseChanged", data => {
         submittedVote = false;
         document.getElementById("voteStatus").textContent = "";
 
-        buildVoteForm(data.players || data.aliveNickNames.map((nick, i) => ({ nickName: nick, realName: data.realNames?.[i] || "", avatar: data.avatars?.[i] || "" })));
+        buildVoteForm(
+            data.players ||
+            data.aliveNickNames.map((nick, i) => ({
+                nickName: nick,
+                realName: data.realNames?.[i] || "",
+                avatar: data.avatars?.[i] || ""
+            })),
+            data.allRealNames || data.realNames || []
+        );
     }
 });
 
@@ -972,7 +980,7 @@ function spectatorEnter(event) {
     if (event.key === "Enter") sendSpectatorMessage();
 }
 
-function buildVoteForm(players) {
+function buildVoteForm(players, allRealNames = []) {
     const form = document.getElementById("voteForm");
     form.innerHTML = "";
 
@@ -982,10 +990,12 @@ function buildVoteForm(players) {
         avatar: p.avatar || ""
     }));
 
-    const availableReals = normalizedPlayers
-        .map(p => p.realName)
-        .filter(Boolean)
-        .filter(real => real !== myRealName);
+    // أسماء الهوية الحقيقية تبقى لجميع اللاعبين حتى بعد الاستبعاد.
+    // نستبعد اسم اللاعب نفسه فقط حتى لا يختار هويته لنفسه.
+    const availableReals = [...new Set(
+        (allRealNames.length ? allRealNames : normalizedPlayers.map(p => p.realName))
+            .filter(Boolean)
+    )].filter(real => real !== myRealName);
 
     normalizedPlayers
         .filter(player => player.nickName && player.nickName !== myNickName)
