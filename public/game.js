@@ -772,21 +772,21 @@ socket.on("lobbyUpdated", data => {
     const list = document.getElementById("lobbyPlayers");
     list.innerHTML = "";
 
+    const countEl = document.getElementById("lobbyPlayerCount");
+    if (countEl) countEl.textContent = data.playerCount ?? (data.players || []).length;
+
     isHost = data.hostId === socket.id || isHost;
     document.getElementById("hostControls").classList.toggle("hidden", !isHost);
     document.getElementById("hostSettings").classList.toggle("hidden", !isHost);
 
     data.players.forEach(player => {
         const div = document.createElement("div");
-        div.className = "player";
+        div.className = "player lobby-player-name-only";
 
-        div.appendChild(getAvatarElement(player.avatar));
+        const real = document.createElement("strong");
+        real.textContent = player.realName || "لا يوجد اسم";
+        div.appendChild(real);
 
-        const text = document.createElement("span");
-        text.textContent = player.nickName || player.realName;
-        text.style.fontWeight = "bold";
-
-        div.appendChild(text);
         list.appendChild(div);
     });
 });
@@ -850,7 +850,7 @@ socket.on("phaseChanged", data => {
         submittedVote = false;
         document.getElementById("voteStatus").textContent = "";
 
-        buildVoteForm(data.aliveNickNames, data.realNames);
+        buildVoteForm(data.players || data.aliveNickNames.map((nick, i) => ({ nickName: nick, realName: data.realNames?.[i] || "", avatar: data.avatars?.[i] || "" })));
     }
 });
 
@@ -946,37 +946,51 @@ function spectatorEnter(event) {
     if (event.key === "Enter") sendSpectatorMessage();
 }
 
-function buildVoteForm(nicks, reals) {
+function buildVoteForm(players) {
     const form = document.getElementById("voteForm");
     form.innerHTML = "";
 
-    const availableReals = reals.filter(r => r !== myRealName);
-    const otherNicks = nicks.filter(n => n !== myNickName);
+    const normalizedPlayers = (players || []).map(p => ({
+        nickName: p.nickName || p.nick || "",
+        realName: p.realName || "",
+        avatar: p.avatar || ""
+    }));
 
-    otherNicks.forEach(nick => {
-        const item = document.createElement("div");
-        item.className = "vote-item";
+    const availableReals = normalizedPlayers
+        .map(p => p.realName)
+        .filter(Boolean)
+        .filter(real => real !== myRealName);
 
-        const title = document.createElement("strong");
-        title.textContent = "👤 " + nick;
-        title.style.minWidth = "120px";
+    normalizedPlayers
+        .filter(player => player.nickName && player.nickName !== myNickName)
+        .forEach(player => {
+            const item = document.createElement("div");
+            item.className = "vote-item";
 
-        const select = document.createElement("select");
-        select.className = "guess-select";
-        select.dataset.nick = nick;
+            const identity = document.createElement("div");
+            identity.className = "vote-player-identity";
+            identity.appendChild(getAvatarElement(player.avatar));
 
-        select.appendChild(new Option("اختر الاسم الحقيقي", ""));
+            const title = document.createElement("strong");
+            title.textContent = player.nickName;
+            identity.appendChild(title);
 
-        availableReals.forEach(real => {
-            select.appendChild(new Option(real, real));
+            const select = document.createElement("select");
+            select.className = "guess-select";
+            select.dataset.nick = player.nickName;
+
+            select.appendChild(new Option("اختر الاسم الحقيقي", ""));
+
+            availableReals.forEach(real => {
+                select.appendChild(new Option(real, real));
+            });
+
+            select.addEventListener("change", updateDuplicateOptions);
+
+            item.appendChild(identity);
+            item.appendChild(select);
+            form.appendChild(item);
         });
-
-        select.addEventListener("change", updateDuplicateOptions);
-
-        item.appendChild(title);
-        item.appendChild(select);
-        form.appendChild(item);
-    });
 }
 
 function updateDuplicateOptions() {
