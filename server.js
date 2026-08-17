@@ -18,6 +18,11 @@ const DEFAULT_CHAT_DURATION = 240;
 const DEFAULT_VOTE_DURATION = 90;
 const ELIMINATION_SUSPENSE_SECONDS = 5;
 const NEXT_PHASE_DELAY_SECONDS = 10;
+const RECONNECT_GRACE_MS = 30000;
+
+app.get("/google-client-config", (req, res) => {
+    res.json({ clientId: process.env.GOOGLE_CLIENT_ID || "" });
+});
 
 function generateRoomCode() {
     let code;
@@ -32,7 +37,7 @@ function generateRoomCode() {
 io.on("connection", socket => {
 
     socket.on("createRoom", data => {
-        const { realName, nickName, avatar } = data;
+        const { realName, nickName, avatar, playerKey } = data;
         const roomCode = generateRoomCode();
 
         rooms[roomCode] = {
@@ -44,6 +49,7 @@ io.on("connection", socket => {
             players: [
                 {
                     id: socket.id,
+                    playerKey,
                     realName,
                     nickName,
                     avatar,
@@ -51,7 +57,9 @@ io.on("connection", socket => {
                     votes: {},
                     finalGuess: null,
                     warnings: 0,
-                    score: 0
+                    score: 0,
+                    connected: true,
+                    disconnectTimer: null
                 }
             ],
 
@@ -72,24 +80,11 @@ io.on("connection", socket => {
             }
         });
 
-        const room = rooms[roomCode];
-
-        if (room.status === "LOBBY") {
-            const shuffledPlayers = [...room.players]
-                .sort(() => Math.random() - 0.5);
-
-            io.to(roomCode).emit("lobbyUpdated", {
-                players: shuffledPlayers.map(p => ({
-                    id: p.id,
-                    realName: p.realName
-                    })),
-                    playerCount: room.players.length
-                });
-            }
+        broadcastLobby(roomCode);
     });
 
     socket.on("joinRoom", data => {
-        const { roomCode, realName, nickName, avatar } = data;
+        const { roomCode, realName, nickName, avatar, playerKey } = data;
         const room = rooms[roomCode];
 
         if (!room) {
@@ -100,16 +95,21 @@ io.on("connection", socket => {
             return socket.emit("errorMsg", "اللعبة بدأت بالفعل.");
         }
 
-        if (room.players.some(p => p.nickName === nickName)) {
+        if (room.players.some(p => p.nickName === nickName && p.playerKey !== playerKey)) {
             return socket.emit("errorMsg", "الاسم المستعار مستخدم.");
         }
 
-        if (room.players.some(p => p.realName === realName)) {
+        if (room.players.some(p => p.realName === realName && p.playerKey !== playerKey)) {
             return socket.emit("errorMsg", "الاسم الحقيقي مستخدم.");
+        }
+
+        if (room.players.some(p => p.playerKey === playerKey)) {
+            return socket.emit("errorMsg", "هذا اللاعب موجود بالفعل في الغرفة.");
         }
 
         room.players.push({
             id: socket.id,
+            playerKey,
             realName,
             nickName,
             avatar,
@@ -117,7 +117,9 @@ io.on("connection", socket => {
             votes: {},
             finalGuess: null,
             warnings: 0,
-            score: 0
+            score: 0,
+            connected: true,
+            disconnectTimer: null
         });
 
         socket.join(roomCode);
@@ -125,22 +127,89 @@ io.on("connection", socket => {
 
         socket.emit("joinedSuccess", {
             roomCode,
+            isHost: room.host === socket.id,
             settings: {
                 chatDuration: room.chatDuration,
                 voteDuration: room.voteDuration
             }
         });
 
-        const shuffledPlayers = [...room.players]
-        .sort(() => Math.random() - 0.5);
+        broadcastLobby(roomCode);
+    });
 
-        io.to(roomCode).emit("lobbyUpdated", {
-        players: shuffledPlayers.map(p => ({
-                id: p.id,
-                realName: p.realName
-            })),
-            playerCount: room.players.length
-});
+    // إعادة ربط اللاعب بعد تحديث الصفحة أثناء اللوبي.
+    socket.on("reconnectRoom", data => {
+        const { roomCode, playerKey } = data || {};
+        const room = rooms[roomCode];
+
+        if (!room || room.status !== "LOBBY") {
+            return socket.emit("reconnectFailed", "الغرفة لم تعد متاحة.");
+        }
+
+        const player = room.players.find(p => p.playerKey === playerKey);
+
+        if (!player) {
+            return socket.emit("reconnectFailed", "لم يتم العثور على لاعبك في الغرفة.");
+        }
+
+        if (player.disconnectTimer) {
+            clearTimeout(player.disconnectTimer);
+            player.disconnectTimer = null;
+        }
+
+        const wasHost = room.host === player.id;
+        player.id = socket.id;
+        player.connected = true;
+        if (wasHost) room.host = socket.id;
+
+        socket.join(roomCode);
+        socket.roomCode = roomCode;
+
+        socket.emit("reconnectedToRoom", {
+            roomCode,
+            isHost: room.host === socket.id,
+            realName: player.realName,
+            nickName: player.nickName,
+            avatar: player.avatar,
+            settings: {
+                chatDuration: room.chatDuration,
+                voteDuration: room.voteDuration
+            }
+        });
+
+        broadcastLobby(roomCode);
+    });
+
+    // خروج يدوي من اللوبي إلى الصفحة الرئيسية.
+    socket.on("leaveRoom", data => {
+        const { roomCode, playerKey } = data || {};
+        const room = rooms[roomCode];
+        if (!room || room.status !== "LOBBY") return;
+
+        const index = room.players.findIndex(p => p.playerKey === playerKey);
+        if (index === -1) return;
+
+        const wasHost = room.host === room.players[index].id;
+        const player = room.players[index];
+        if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+
+        room.players.splice(index, 1);
+        socket.leave(roomCode);
+        socket.roomCode = null;
+
+        if (room.players.length === 0) {
+            clearInterval(room.timer);
+            delete rooms[roomCode];
+            return;
+        }
+
+        if (wasHost) {
+            const newHost = room.players.find(p => p.connected !== false) || room.players[0];
+            room.host = newHost.id;
+            io.to(newHost.id).emit("errorMsg", "👑 أصبحت أنت صاحب الغرفة.");
+        }
+
+        broadcastLobby(roomCode);
     });
 
     socket.on("startGame", data => {
@@ -151,7 +220,8 @@ io.on("connection", socket => {
 
         if (!room || room.host !== socket.id) return;
 
-        if (room.players.length < 4) {
+        const connectedPlayers = room.players.filter(p => p.connected !== false);
+        if (connectedPlayers.length < 4) {
             return socket.emit(
                 "errorMsg",
                 "يحتاج اللعب إلى 4 لاعبين على الأقل."
@@ -271,44 +341,86 @@ io.on("connection", socket => {
     });
 
     socket.on("disconnect", () => {
-    const roomCode = socket.roomCode;
+        const roomCode = socket.roomCode;
+        if (!roomCode || !rooms[roomCode]) return;
 
-    if (!roomCode || !rooms[roomCode]) return;
+        const room = rooms[roomCode];
+        const player = room.players.find(p => p.id === socket.id);
+        if (!player) return;
 
-    const room = rooms[roomCode];
-
-    room.players = room.players.filter(p => p.id !== socket.id);
-
-    if (room.players.length === 0) {
-        clearInterval(room.timer);
-        delete rooms[roomCode];
-    } else {
-        if (room.host === socket.id && room.status === "LOBBY") {
-            const newHost = room.players.find(p => p.isAlive);
-
-            if (newHost) {
-                room.host = newHost.id;
-                io.to(newHost.id).emit(
-                    "errorMsg",
-                    "👑 أصبحت أنت صاحب الغرفة."
-                );
-            }
-        }
-
+        // أثناء اللوبي ننتظر قليلًا قبل حذف اللاعب، حتى يتمكن تحديث الصفحة
+        // من إعادة ربطه بنفس مكانه في الغرفة.
         if (room.status === "LOBBY") {
-            const shuffledPlayers = [...room.players]
-                .sort(() => Math.random() - 0.5);
+            player.connected = false;
 
-            io.to(roomCode).emit("lobbyUpdated", {
-                players: shuffledPlayers.map(p => ({
-                    id: p.id,
-                    realName: p.realName
-                })),
-                playerCount: room.players.length
-            });
+            if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
+
+            player.disconnectTimer = setTimeout(() => {
+                const currentRoom = rooms[roomCode];
+                if (!currentRoom) return;
+
+                const currentIndex = currentRoom.players.findIndex(
+                    p => p.playerKey === player.playerKey
+                );
+
+                if (currentIndex === -1) return;
+
+                const currentPlayer = currentRoom.players[currentIndex];
+                if (currentPlayer.connected !== false) return;
+
+                const wasHost = currentRoom.host === currentPlayer.id;
+                currentRoom.players.splice(currentIndex, 1);
+
+                if (currentRoom.players.length === 0) {
+                    delete rooms[roomCode];
+                    return;
+                }
+
+                if (wasHost) {
+                    const newHost = currentRoom.players.find(p => p.connected !== false) || currentRoom.players[0];
+                    currentRoom.host = newHost.id;
+                    io.to(newHost.id).emit("errorMsg", "👑 أصبحت أنت صاحب الغرفة.");
+                }
+
+                broadcastLobby(roomCode);
+            }, RECONNECT_GRACE_MS);
+
+            broadcastLobby(roomCode);
+            return;
         }
-    }
+
+        // بعد بدء اللعبة، السلوك القديم يبقى: اللاعب المنقطع يخرج من الغرفة.
+        room.players = room.players.filter(p => p.id !== socket.id);
+
+        if (room.players.length === 0) {
+            clearInterval(room.timer);
+            delete rooms[roomCode];
+            return;
+        }
+
+        broadcastLobby(roomCode);
+    });
 });
+
+function broadcastLobby(roomCode) {
+    const room = rooms[roomCode];
+    if (!room || room.status !== "LOBBY") return;
+
+    const shuffledPlayers = [...room.players]
+        .filter(p => p.connected !== false)
+        .sort(() => Math.random() - 0.5);
+
+    io.to(roomCode).emit("lobbyUpdated", {
+        players: shuffledPlayers.map(p => ({
+            id: p.id,
+            realName: p.realName,
+            nickName: p.nickName,
+            avatar: p.avatar
+        })),
+        playerCount: shuffledPlayers.length,
+        hostId: room.host
+    });
+}
 
 function playSound(roomCode, name) {
     if (rooms[roomCode]) io.to(roomCode).emit("audioEvent", { name });
