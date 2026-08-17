@@ -2,6 +2,7 @@ const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
@@ -13,6 +14,32 @@ const io = new Server(server, {
 app.use(express.static(path.join(__dirname, "public")));
 
 const rooms = {};
+const DATA_DIR = path.join(__dirname, "data");
+const PLAYERS_FILE = path.join(DATA_DIR, "players.json");
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+let playerProfiles = {};
+try { playerProfiles = JSON.parse(fs.readFileSync(PLAYERS_FILE, "utf8")); } catch (_) { playerProfiles = {}; }
+function savePlayerProfiles(){ try { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(playerProfiles, null, 2)); } catch(e){ console.error("تعذر حفظ بيانات اللاعبين", e); } }
+const DAILY_CHALLENGES = [
+  {id:"daily_time",title:"العب لمدة 30 دقيقة",target:30,reward:100},
+  {id:"daily_rounds",title:"أكمل 3 جولات",target:3,reward:150},
+  {id:"daily_hidden4",title:"لا تنكشف في جولة فيها أكثر من 4 لاعبين",target:1,reward:200},
+  {id:"daily_guesses",title:"خمّن هوية لاعب بشكل صحيح 5 مرات",target:5,reward:250}
+];
+const WEEKLY_CHALLENGES = [
+  {id:"weekly_time",title:"العب لمدة 3 ساعات",target:180,reward:500},
+  {id:"weekly_rounds",title:"أكمل 20 جولة",target:20,reward:750},
+  {id:"weekly_hidden",title:"لا تنكشف 10 مرات",target:10,reward:1000},
+  {id:"weekly_guesses",title:"خمّن 25 هوية بشكل صحيح",target:25,reward:1200}
+];
+function dayKey(){return new Date().toISOString().slice(0,10)}
+function weekKey(){const d=new Date(); const first=new Date(d); first.setDate(d.getDate()-d.getDay()); return first.toISOString().slice(0,10)}
+function ensureProfile(id,email="",name=""){if(!id)return null; let p=playerProfiles[id]; if(!p)p=playerProfiles[id]={accountId:id,email,name,level:1,xp:0,dailyKey:dayKey(),weeklyKey:weekKey(),daily:{},weekly:{},totalPlayMinutes:0}; if(p.dailyKey!==dayKey()){p.dailyKey=dayKey();p.daily={}} if(p.weeklyKey!==weekKey()){p.weeklyKey=weekKey();p.weekly={}} p.email=email||p.email||'';p.name=name||p.name||''; return p}
+function challengeList(p, defs, bucket){return defs.map(d=>({id:d.id,title:d.title,target:d.target,reward:d.reward,progress:Number(p[bucket][d.id]||0),completed:Number(p[bucket][d.id]||0)>=d.target}))}
+function publicProgress(p){return {level:p.level,xp:p.xp,daily:challengeList(p,DAILY_CHALLENGES,'daily'),weekly:challengeList(p,WEEKLY_CHALLENGES,'weekly')}}
+function addXP(id, amount){const p=ensureProfile(id);if(!p)return; p.xp+=Math.max(0,amount); while(p.xp>=1000){p.xp-=1000;p.level++} savePlayerProfiles(); return p}
+function addChallengeProgress(id, key, amount=1){const p=ensureProfile(id);if(!p)return; for(const [bucket,defs] of [["daily",DAILY_CHALLENGES],["weekly",WEEKLY_CHALLENGES]]){const d=defs.find(x=>x.id===key || (key.startsWith('time')&&x.id===bucket+'_time') || (key.startsWith('rounds')&&x.id===bucket+'_rounds') || (key.startsWith('hidden4')&&x.id===bucket+'_hidden4') || (key==='hidden'&&x.id===bucket+'_hidden') || (key.startsWith('guesses')&&x.id===bucket+'_guesses'));if(!d)continue;const old=Number(p[bucket][d.id]||0), next=Math.min(d.target,old+amount);p[bucket][d.id]=next;if(old<d.target&&next>=d.target)addXP(id,d.reward)} savePlayerProfiles(); return p}
+function progressForPlayer(id){const p=ensureProfile(id); if(!p)return null; return publicProgress(p)}
 
 const DEFAULT_CHAT_DURATION = 240;
 const DEFAULT_VOTE_DURATION = 90;
@@ -36,8 +63,11 @@ function generateRoomCode() {
 
 io.on("connection", socket => {
 
+    socket.on("registerAccount", data => { const p=ensureProfile(data?.accountId || data?.email, data?.email, data?.name); if(p){ savePlayerProfiles(); socket.emit("profileProgress", publicProgress(p)); } });
+    socket.on("getProgress", data => { const p=ensureProfile(data?.accountId || data?.email, data?.email); if(p) socket.emit("profileProgress", publicProgress(p)); });
+
     socket.on("createRoom", data => {
-        const { realName, nickName, avatar, playerKey } = data;
+        const { realName, nickName, avatar, playerKey, accountId, email } = data;
         const roomCode = generateRoomCode();
 
         rooms[roomCode] = {
@@ -50,6 +80,8 @@ io.on("connection", socket => {
                 {
                     id: socket.id,
                     playerKey,
+                    accountId: accountId || email || playerKey,
+                    email: email || "",
                     realName,
                     nickName,
                     avatar,
@@ -84,7 +116,7 @@ io.on("connection", socket => {
     });
 
     socket.on("joinRoom", data => {
-        const { roomCode, realName, nickName, avatar, playerKey } = data;
+        const { roomCode, realName, nickName, avatar, playerKey, accountId, email } = data;
         const room = rooms[roomCode];
 
         if (!room) {
@@ -107,9 +139,15 @@ io.on("connection", socket => {
             return socket.emit("errorMsg", "هذا اللاعب موجود بالفعل في الغرفة.");
         }
 
+        if (room.players.filter(p => p.connected !== false).length >= 8) {
+            return socket.emit("errorMsg", "الغرفة ممتلئة. الحد الأقصى 8 لاعبين.");
+        }
+
         room.players.push({
             id: socket.id,
             playerKey,
+            accountId: accountId || email || playerKey,
+            email: email || "",
             realName,
             nickName,
             avatar,
@@ -239,6 +277,9 @@ io.on("connection", socket => {
         }
 
         room.status = "PLAYING";
+        room.gameStartedAt = Date.now();
+        room.players.forEach(p => { p.gameStartedAt = Date.now(); ensureProfile(p.accountId || p.email || p.playerKey, p.email, p.realName); });
+        savePlayerProfiles();
         startChatPhase(roomCode);
     });
 
@@ -508,7 +549,9 @@ function processRoundResults(roomCode) {
     room.timer = null;
 
     const alivePlayers = room.players.filter(p => p.isAlive);
+    const roundParticipants = [...alivePlayers];
     const roundScores = {};
+    room.players.forEach(p => { if (p.gameStartedAt) { const minutes = Math.max(0, (Date.now()-p.gameStartedAt)/60000); p.sessionMinutes = minutes; } });
 
     alivePlayers.forEach(p => {
         roundScores[p.id] = 0;
@@ -558,6 +601,14 @@ function processRoundResults(roomCode) {
         }
     });
 
+    room.players.forEach(p => {
+        const id=p.accountId || p.email || p.playerKey;
+        if(!id) return;
+        addChallengeProgress(id,'rounds',1);
+        const correct=roundScores[p.id]||0;
+        if(correct>0) addChallengeProgress(id,'guesses',correct);
+    });
+
     let currentlyAlive = room.players.filter(p => p.isAlive);
 
     // الاستبعاد الطبيعي
@@ -584,6 +635,14 @@ function processRoundResults(roomCode) {
     }
 
     const eliminatedNames = eliminatedPlayers.map(p => p.nickName);
+    roundParticipants.forEach(p => {
+        if (!eliminatedPlayers.includes(p)) {
+            const id = p.accountId || p.email || p.playerKey;
+            addChallengeProgress(id, 'hidden', 1);
+            if (room.players.length > 4) addChallengeProgress(id, 'hidden4', 1);
+        }
+    });
+    room.players.forEach(p => { const id=p.accountId || p.email || p.playerKey; if(id && p.gameStartedAt){ const minutes=Math.floor((Date.now()-p.gameStartedAt)/60000); if(minutes>0){ addChallengeProgress(id,'time',minutes); p.gameStartedAt=Date.now(); } } });
 
     // أولاً: تشويق بدون كشف الاسم
     io.to(roomCode).emit("eliminationPending", {
@@ -765,6 +824,7 @@ function endGame(roomCode, resultData) {
     clearInterval(room.timer);
     room.timer = null;
 
+    room.players.forEach(p => { const id=p.accountId || p.email || p.playerKey; if(id && p.gameStartedAt){ const minutes=Math.floor((Date.now()-p.gameStartedAt)/60000); if(minutes>0) addChallengeProgress(id,'time',minutes); p.gameStartedAt=null; } });
     const sortedPlayers = [...room.players].sort(
         (a, b) => b.score - a.score
     );
@@ -780,6 +840,7 @@ function endGame(roomCode, resultData) {
             score: p.score
         }))
     });
+    room.players.forEach(p => { const id=p.accountId || p.email || p.playerKey; const profile=progressForPlayer(id); if(profile) io.to(p.id).emit("progressUpdated", profile); });
 }
 
 const PORT = Number(process.env.PORT) || 3000;
