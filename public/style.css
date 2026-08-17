@@ -885,3 +885,50 @@ hr {
     color: #9ca3af;
     text-align: left;
 }
+/* ================= ADVANCED SETTINGS MODAL & CONTROLS ================= */
+.settings-trigger-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border-color);
+    color: var(--text-highlight);
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    cursor: pointer;
+    margin: 10px 0;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.settings-trigger-btn:hover {
+    background: var(--accent-color);
+    color: #fff;
+}
+
+.settings-section {
+    text-align: right;
+    margin: 15px 0;
+}
+
+.settings-section h4 {
+    color: var(--text-highlight);
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.settings-control-group {
+    margin: 12px 0;
+    text-align: right;
+}
+
+.settings-control-group label {
+    display: block;
+    color: #d1d5db;
+    font-size: 13px;
+    margin-bottom: 5px;
+}
+
+.settings-control-group input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent-color);
+    cursor: pointer;
+}
