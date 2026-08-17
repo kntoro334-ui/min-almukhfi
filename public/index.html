@@ -319,8 +319,11 @@ input, select, textarea, button {
 
 <div class="container">
 
-    <!-- زر فتح الإعدادات المتقدمة في الأعلى -->
-    <button id="openSettingsBtn" class="settings-trigger-btn">⚙️ الإعدادات المتقدمة والثيمات</button>
+    <!-- أزرار النظام الجديد -->
+    <div class="top-action-row">
+        <button id="openSettingsBtn" class="settings-trigger-btn">⚙️ الإعدادات</button>
+        <button id="openChallengesBtn" class="challenges-trigger-btn">🏆 التحديات</button>
+    </div>
 
     <!-- نافذة الإعدادات المتقدمة (Modal) -->
     <div id="settingsModal" class="avatar-modal hidden">
@@ -334,12 +337,8 @@ input, select, textarea, button {
                 <h4>👤 حساب المستخدم والتسجيل</h4>
                 <div class="player-profile-card" style="margin: 10px 0; text-align: right;">
                     <div class="profile-header">
-                        <h3 id="profile-name-display" style="margin:0; font-size:15px;">مستوى الموسم</h3>
-                        <span class="season-badge" style="font-size:12px;">الموسم 1</span>
-                    </div>
-                    <div class="season-bar-container" style="margin-top:8px;">
-                        <div class="season-bar-fill" id="xp-bar" style="width: 0%;"></div>
-                        <div class="level-text" style="font-size:11px;">مستوى <span id="current-level">1</span> ( <span id="current-xp">0</span> / 1000 XP )</div>
+                        <h3 style="margin:0; font-size:15px;">حسابك</h3>
+                        <span class="season-badge" style="font-size:12px;">XP محفوظ بالحساب</span>
                     </div>
                 </div>
                 <div class="google-login-box">
@@ -372,26 +371,64 @@ input, select, textarea, button {
             <!-- قسم تخصيص الأطوال والأحجام -->
             <div class="settings-section">
                 <h4>📏 تخصيص الأطوال والأحجام</h4>
-                
-                <div class="settings-control-group">
-                    <label for="chatHeightRange">ارتفاع مربع المحادثة: <span id="chatHeightVal">320px</span></label>
-                    <input type="range" id="chatHeightRange" min="200" max="600" step="10" value="320">
-                </div>
 
                 <div class="settings-control-group">
-                    <label for="fontSizeRange">حجم الخط العام: <span id="fontSizeVal">15px</span></label>
-                    <input type="range" id="fontSizeRange" min="12" max="20" step="1" value="15">
+                    <label for="textScaleRange">حجم النص: <span id="textScaleVal">100%</span></label>
+                    <input type="range" id="textScaleRange" min="80" max="130" step="5" value="100">
                 </div>
-
                 <div class="settings-control-group">
-                    <label for="cardWidthRange">عرض صندوق المحتوى الرئيسي: <span id="cardWidthVal">850px</span></label>
-                    <input type="range" id="cardWidthRange" min="600" max="1100" step="20" value="850">
+                    <label for="cardScaleRange">حجم البطاقات: <span id="cardScaleVal">100%</span></label>
+                    <input type="range" id="cardScaleRange" min="80" max="120" step="5" value="100">
+                </div>
+                <div class="settings-control-group">
+                    <label for="chatScaleRange">حجم المحادثة: <span id="chatScaleVal">100%</span></label>
+                    <input type="range" id="chatScaleRange" min="80" max="130" step="5" value="100">
+                </div>
+                <div class="settings-control-group">
+                    <label for="chatWidthRange">عرض المحادثة: <span id="chatWidthVal">100%</span></label>
+                    <input type="range" id="chatWidthRange" min="80" max="130" step="5" value="100">
+                </div>
+                <div class="settings-control-group">
+                    <label for="chatHeightRange">ارتفاع المحادثة: <span id="chatHeightVal">100%</span></label>
+                    <input type="range" id="chatHeightRange" min="70" max="140" step="5" value="100">
+                </div>
+                <div class="settings-control-group">
+                    <label for="buttonScaleRange">حجم الأزرار: <span id="buttonScaleVal">100%</span></label>
+                    <input type="range" id="buttonScaleRange" min="80" max="130" step="5" value="100">
+                </div>
+                <div class="settings-control-group">
+                    <label for="spacingScaleRange">المسافات: <span id="spacingScaleVal">100%</span></label>
+                    <input type="range" id="spacingScaleRange" min="70" max="140" step="5" value="100">
                 </div>
             </div>
 
             <div class="avatar-modal-actions">
                 <button id="saveSettingsBtn" class="full-width">حفظ وتطبيق الإعدادات</button>
             </div>
+        </div>
+    </div>
+
+    <!-- XP BAR ثابت أسفل الواجهة -->
+    <div id="bottomXpBar" class="bottom-xp-bar">
+        <div class="xp-header-row">
+            <strong>⭐ المستوى <span id="current-level">1</span></strong>
+            <span><span id="current-xp">0</span> / 1000 XP</span>
+        </div>
+        <div class="xp-track"><div class="xp-fill" id="xp-bar"></div></div>
+    </div>
+
+    <!-- نافذة التحديات -->
+    <div id="challengesModal" class="avatar-modal hidden">
+        <div class="avatar-modal-card challenges-card">
+            <button id="closeChallengesBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
+            <h3>🏆 التحديات</h3>
+            <p class="avatar-modal-help">أكمل التحديات للحصول على XP ورفع مستواك.</p>
+            <div class="challenge-tabs">
+                <button id="dailyChallengesTab" class="challenge-tab active">📅 يومية</button>
+                <button id="weeklyChallengesTab" class="challenge-tab">🗓️ أسبوعية</button>
+            </div>
+            <div id="dailyChallengesList" class="challenges-list"></div>
+            <div id="weeklyChallengesList" class="challenges-list hidden"></div>
         </div>
     </div>
 
@@ -466,7 +503,7 @@ input, select, textarea, button {
         <div class="card">
             <h2>🏠 غرفة الانتظار</h2>
             <div id="roomCodeDisplay" class="room-code">----</div>
-            <p class="subtitle">شارك الرمز مع أصدقائك لبدء التحدي<br>👥 الحد الأقصى 4 لاعبين</p>
+            <p class="subtitle">شارك الرمز مع أصدقائك لبدء التحدي<br>👥 من 4 إلى 8 لاعبين</p>
 
             <h3>👥 اللاعبون المتواجدون</h3>
             <div id="lobbyPlayers" class="players"></div>
