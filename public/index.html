@@ -368,42 +368,40 @@ input, select, textarea, button {
 
             <hr>
 
-            <!-- قسم تخصيص الأطوال والأحجام -->
-            <div class="settings-section">
-                <h4>📏 تخصيص الأطوال والأحجام</h4>
+            <!-- قسم تحسين وضوح المحادثة -->
+            <div class="settings-section chat-settings-section">
+                <h4>👁️ وضوح المحادثة</h4>
+                <p class="settings-help">كبّر النص والصور والمساحة حتى تكون المحادثة أوضح وأسهل للقراءة.</p>
 
                 <div class="settings-control-group">
-                    <label for="textScaleRange">حجم النص: <span id="textScaleVal">100%</span></label>
-                    <input type="range" id="textScaleRange" min="80" max="130" step="5" value="100">
+                    <label for="chatTextScaleRange">حجم نص المحادثة: <span id="chatTextScaleVal">100%</span></label>
+                    <input type="range" id="chatTextScaleRange" min="80" max="180" step="5" value="100">
                 </div>
+
                 <div class="settings-control-group">
-                    <label for="cardScaleRange">حجم البطاقات: <span id="cardScaleVal">100%</span></label>
-                    <input type="range" id="cardScaleRange" min="80" max="120" step="5" value="100">
+                    <label for="chatMessageScaleRange">حجم بطاقات الرسائل: <span id="chatMessageScaleVal">100%</span></label>
+                    <input type="range" id="chatMessageScaleRange" min="90" max="150" step="5" value="100">
                 </div>
-                <div class="settings-control-group">
-                    <label for="chatScaleRange">حجم المحادثة: <span id="chatScaleVal">100%</span></label>
-                    <input type="range" id="chatScaleRange" min="80" max="130" step="5" value="100">
-                </div>
+
                 <div class="settings-control-group">
                     <label for="chatWidthRange">عرض المحادثة: <span id="chatWidthVal">100%</span></label>
-                    <input type="range" id="chatWidthRange" min="80" max="130" step="5" value="100">
+                    <input type="range" id="chatWidthRange" min="80" max="100" step="5" value="100">
                 </div>
+
                 <div class="settings-control-group">
                     <label for="chatHeightRange">ارتفاع المحادثة: <span id="chatHeightVal">100%</span></label>
-                    <input type="range" id="chatHeightRange" min="70" max="140" step="5" value="100">
+                    <input type="range" id="chatHeightRange" min="70" max="180" step="5" value="100">
                 </div>
+
                 <div class="settings-control-group">
-                    <label for="buttonScaleRange">حجم الأزرار: <span id="buttonScaleVal">100%</span></label>
-                    <input type="range" id="buttonScaleRange" min="80" max="130" step="5" value="100">
-                </div>
-                <div class="settings-control-group">
-                    <label for="spacingScaleRange">المسافات: <span id="spacingScaleVal">100%</span></label>
-                    <input type="range" id="spacingScaleRange" min="70" max="140" step="5" value="100">
+                    <label for="chatAvatarScaleRange">حجم صور اللاعبين: <span id="chatAvatarScaleVal">100%</span></label>
+                    <input type="range" id="chatAvatarScaleRange" min="80" max="160" step="5" value="100">
                 </div>
             </div>
 
             <div class="avatar-modal-actions">
                 <button id="saveSettingsBtn" class="full-width">حفظ وتطبيق الإعدادات</button>
+                <button type="button" class="secondary-modal-btn full-width" onclick="resetChatSettings()">↩️ إرجاع وضوح المحادثة للوضع الطبيعي</button>
             </div>
         </div>
     </div>
