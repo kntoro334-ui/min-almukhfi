@@ -128,6 +128,50 @@ document.addEventListener("DOMContentLoaded", () => {
     if (t) t.textContent = muted ? "🔇 الصوت" : "🔊 الصوت";
 });
 
+// --- 1. استرجاع بيانات المستخدم تلقائياً عند فتح الصفحة ---
+window.addEventListener('DOMContentLoaded', () => {
+    const savedUser = localStorage.getItem('secretIdentity_user');
+    if (savedUser) {
+        try {
+            const userData = JSON.parse(savedUser);
+            if (document.getElementById('realName')) document.getElementById('realName').value = userData.realName || '';
+            if (document.getElementById('nickName')) document.getElementById('nickName').value = userData.nickName || '';
+            
+            // تحديث واجهة الـ XP والمستوى
+            updateProfileUI(userData.level || 1, userData.xp || 0);
+        } catch (e) {
+            console.error("خطأ في قراءة بيانات الجلسة المخزنة", e);
+        }
+    }
+});
+
+// --- 2. دالة تحديث شريط الـ XP والمستوى في الواجهة ---
+function updateProfileUI(level, xp) {
+    const levelElem = document.getElementById('current-level');
+    const xpElem = document.getElementById('current-xp');
+    const xpBar = document.getElementById('xp-bar');
+
+    if (levelElem) levelElem.innerText = level;
+    if (xpElem) xpElem.innerText = xp;
+    if (xpBar) {
+        let percent = Math.min(100, Math.max(0, (xp % 1000) / 10));
+        xpBar.style.width = percent + '%';
+    }
+}
+
+// --- 3. دالة حفظ الجلسة ---
+function saveUserSession(realName, nickName, avatar) {
+    const existingData = JSON.parse(localStorage.getItem('secretIdentity_user') || '{}');
+    const userData = {
+        realName: realName || existingData.realName || '',
+        nickName: nickName || existingData.nickName || '',
+        avatar: avatar || existingData.avatar || '',
+        level: existingData.level || 1,
+        xp: existingData.xp || 0
+    };
+    localStorage.setItem('secretIdentity_user', JSON.stringify(userData));
+}
+
 
 async function initGoogleLogin() {
     const container = document.getElementById("googleSignInButton");
