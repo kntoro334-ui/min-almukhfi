@@ -503,6 +503,11 @@ function startVotePhase(roomCode) {
 
     io.to(roomCode).emit("phaseChanged", {
         phase: "VOTE",
+        players: shuffledPlayers.map(p => ({
+            nickName: p.nickName,
+            realName: p.realName,
+            avatar: p.avatar
+        })),
         aliveNickNames: shuffledPlayers.map(p => p.nickName),
         realNames: shuffledPlayers.map(p => p.realName),
         avatars: shuffledPlayers.map(p => p.avatar)
