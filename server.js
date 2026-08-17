@@ -89,10 +89,6 @@ io.on("connection", socket => {
             return socket.emit("errorMsg", "اللعبة بدأت بالفعل.");
         }
 
-        if (room.players.length >= 4) {
-            return socket.emit("errorMsg", "الغرفة مكتملة. الحد الأقصى 4 لاعبين.");
-        }
-
         if (room.players.some(p => p.nickName === nickName)) {
             return socket.emit("errorMsg", "الاسم المستعار مستخدم.");
         }
@@ -137,17 +133,10 @@ io.on("connection", socket => {
 
         if (!room || room.host !== socket.id) return;
 
-        if (room.players.length < 3) {
+        if (room.players.length < 4) {
             return socket.emit(
                 "errorMsg",
-                "يحتاج اللعب إلى 3 لاعبين على الأقل."
-            );
-        }
-
-        if (room.players.length > 4) {
-            return socket.emit(
-                "errorMsg",
-                "الحد الأقصى للعبة هو 4 لاعبين."
+                "يحتاج اللعب إلى 4 لاعبين على الأقل."
             );
         }
 
