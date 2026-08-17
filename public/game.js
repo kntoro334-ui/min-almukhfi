@@ -111,6 +111,14 @@ window.addEventListener("pointerdown", () => AudioManager.unlock(), { once:true 
 window.addEventListener("keydown", () => AudioManager.unlock(), { once:true });
 
 document.addEventListener("DOMContentLoaded", () => {
+    restoreProfile();
+    initGoogleLogin();
+
+    const real = document.getElementById("realName");
+    const nick = document.getElementById("nickName");
+    if (real) real.addEventListener("input", saveProfile);
+    if (nick) nick.addEventListener("input", saveProfile);
+
     const s = document.getElementById("sfxVolume"), a = document.getElementById("ambienceVolume");
     if (s) s.value = AudioManager.getSfx();
     if (a) a.value = AudioManager.getAmbience();
@@ -120,6 +128,85 @@ document.addEventListener("DOMContentLoaded", () => {
     if (t) t.textContent = muted ? "🔇 الصوت" : "🔊 الصوت";
 });
 
+
+async function initGoogleLogin() {
+    const container = document.getElementById("googleSignInButton");
+    const status = document.getElementById("googleLoginStatus");
+    if (!container) return;
+
+    try {
+        const response = await fetch("/google-client-config");
+        const config = await response.json();
+
+        if (!config.clientId) {
+            if (status) status.textContent = "لتفعيل دخول Google: ضع GOOGLE_CLIENT_ID في إعدادات السيرفر.";
+            return;
+        }
+
+        const waitForGoogle = () => {
+            if (!window.google?.accounts?.id) {
+                setTimeout(waitForGoogle, 200);
+                return;
+            }
+
+            google.accounts.id.initialize({
+                client_id: config.clientId,
+                callback: handleGoogleCredential
+            });
+
+            google.accounts.id.renderButton(container, {
+                theme: "outline",
+                size: "large",
+                text: "signin_with",
+                shape: "rectangular",
+                width: 320,
+                locale: "ar"
+            });
+        };
+
+        waitForGoogle();
+    } catch (error) {
+        if (status) status.textContent = "تعذر تجهيز تسجيل الدخول بحساب Google.";
+    }
+}
+
+function decodeGoogleCredential(credential) {
+    const payload = credential.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(atob(base64).split("").map(c =>
+        "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
+    ).join(""));
+    return JSON.parse(json);
+}
+
+function handleGoogleCredential(response) {
+    try {
+        const profile = decodeGoogleCredential(response.credential);
+        const real = document.getElementById("realName");
+        const nick = document.getElementById("nickName");
+
+        if (real && !real.value.trim()) real.value = profile.name || "";
+        if (nick && !nick.value.trim()) nick.value = profile.given_name || profile.name || "";
+
+        if (profile.picture) {
+            currentAvatarData = profile.picture;
+            restoreAvatarVisual(profile.picture);
+        }
+
+        localStorage.setItem("si_googleProfile", JSON.stringify({
+            sub: profile.sub || "",
+            name: profile.name || "",
+            picture: profile.picture || ""
+        }));
+
+        saveProfile();
+
+        const status = document.getElementById("googleLoginStatus");
+        if (status) status.textContent = `✅ تم تسجيل الدخول بحساب Google: ${profile.name || ""}`;
+    } catch (error) {
+        showError("تعذر قراءة بيانات حساب Google.");
+    }
+}
 
 console.log("Secret Identity جاهزة 🎭");
 
@@ -133,10 +220,93 @@ let resultCountdownInterval = null;
 let suspenseCountdownInterval = null;
 let currentAvatarData = "#ef4444";
 
+const PROFILE_STORAGE_KEY = "si_playerProfile";
+const LOBBY_SESSION_KEY = "si_lobbySession";
+const PLAYER_KEY_STORAGE_KEY = "si_playerKey";
+
+function getPlayerKey() {
+    let key = localStorage.getItem(PLAYER_KEY_STORAGE_KEY);
+    if (!key) {
+        key = (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+        localStorage.setItem(PLAYER_KEY_STORAGE_KEY, key);
+    }
+    return key;
+}
+
+const playerKey = getPlayerKey();
+
+function saveProfile() {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({
+        realName: document.getElementById("realName")?.value.trim() || myRealName,
+        nickName: document.getElementById("nickName")?.value.trim() || myNickName,
+        avatar: currentAvatarData
+    }));
+}
+
+function saveLobbySession() {
+    if (!currentRoom) return;
+    localStorage.setItem(LOBBY_SESSION_KEY, JSON.stringify({
+        roomCode: currentRoom,
+        playerKey,
+        realName: myRealName,
+        nickName: myNickName,
+        avatar: currentAvatarData
+    }));
+}
+
+function clearLobbySession() {
+    localStorage.removeItem(LOBBY_SESSION_KEY);
+}
+
+function restoreProfile() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || "null");
+        if (!saved) return;
+
+        const real = document.getElementById("realName");
+        const nick = document.getElementById("nickName");
+        if (real && saved.realName) real.value = saved.realName;
+        if (nick && saved.nickName) nick.value = saved.nickName;
+
+        if (saved.avatar) {
+            currentAvatarData = saved.avatar;
+            restoreAvatarVisual(saved.avatar);
+        }
+    } catch (_) {}
+}
+
+function restoreAvatarVisual(data) {
+    document.querySelectorAll(".avatar-circle").forEach(el => el.classList.remove("selected"));
+
+    const preset = [...document.querySelectorAll(".avatar-circle")].find(el =>
+        el.style.backgroundColor && el.style.backgroundColor.toLowerCase() === String(data).toLowerCase()
+    );
+
+    if (preset) {
+        preset.classList.add("selected");
+        return;
+    }
+
+    const section = document.querySelector(".avatar-section");
+    const label = document.querySelector(".custom-avatar-label");
+    if (!section || !label) return;
+
+    let custom = section.querySelector(".saved-avatar");
+    if (!custom) {
+        custom = document.createElement("div");
+        custom.className = "avatar-circle selected saved-avatar";
+        section.insertBefore(custom, label);
+    }
+    custom.style.backgroundImage = /^https?:\/\//i.test(data) || String(data).startsWith("data:image") ? `url("${String(data).replace(/"/g, '\\"')}")` : "";
+    if (!custom.style.backgroundImage) custom.style.backgroundColor = data;
+}
+
+
 function selectAvatar(element, data) {
     document.querySelectorAll(".avatar-circle").forEach(el => el.classList.remove("selected"));
     element.classList.add("selected");
     currentAvatarData = data;
+    saveProfile();
 }
 
 function handleImageUpload(event) {
@@ -157,6 +327,7 @@ function handleImageUpload(event) {
             ctx.drawImage(img, 0, 0, 100, 100);
 
             currentAvatarData = canvas.toDataURL("image/jpeg", 0.7);
+            saveProfile();
 
             const customDiv = document.createElement("div");
             customDiv.className = "avatar-circle selected";
@@ -270,6 +441,7 @@ function usePinterestImage() {
      * ولا نحتاج صلاحيات Pinterest أو API key.
      */
     currentAvatarData = url;
+    saveProfile();
 
     document.querySelectorAll(".avatar-circle").forEach(el =>
         el.classList.remove("selected")
@@ -349,11 +521,13 @@ function createRoom() {
 
     myNickName = nickName;
     myRealName = realName;
+    saveProfile();
 
     socket.emit("createRoom", {
         realName,
         nickName,
-        avatar: currentAvatarData
+        avatar: currentAvatarData,
+        playerKey
     });
 }
 
@@ -368,18 +542,38 @@ function joinRoom() {
 
     myNickName = nickName;
     myRealName = realName;
+    saveProfile();
 
     socket.emit("joinRoom", {
         roomCode,
         realName,
         nickName,
-        avatar: currentAvatarData
+        avatar: currentAvatarData,
+        playerKey
     });
 }
+
+socket.on("connect", () => {
+    try {
+        const session = JSON.parse(localStorage.getItem(LOBBY_SESSION_KEY) || "null");
+        if (!session || !session.roomCode) return;
+
+        currentRoom = session.roomCode;
+        myRealName = session.realName || myRealName;
+        myNickName = session.nickName || myNickName;
+        currentAvatarData = session.avatar || currentAvatarData;
+
+        socket.emit("reconnectRoom", {
+            roomCode: session.roomCode,
+            playerKey: session.playerKey || playerKey
+        });
+    } catch (_) {}
+});
 
 socket.on("roomCreated", data => {
     currentRoom = data.roomCode;
     isHost = true;
+    saveLobbySession();
 
     document.getElementById("roomCodeDisplay").textContent = currentRoom;
     document.getElementById("hostControls").classList.remove("hidden");
@@ -391,15 +585,45 @@ socket.on("roomCreated", data => {
 
 socket.on("joinedSuccess", data => {
     currentRoom = data.roomCode;
+    isHost = !!data.isHost;
+    saveLobbySession();
 
     document.getElementById("roomCodeDisplay").textContent = currentRoom;
     updateMyPlayerTag();
     showScreen("lobbyScreen");
 });
 
+socket.on("reconnectedToRoom", data => {
+    currentRoom = data.roomCode;
+    myRealName = data.realName || myRealName;
+    myNickName = data.nickName || myNickName;
+    currentAvatarData = data.avatar || currentAvatarData;
+    isHost = !!data.isHost;
+    saveProfile();
+    saveLobbySession();
+
+    document.getElementById("roomCodeDisplay").textContent = currentRoom;
+    document.getElementById("hostControls").classList.toggle("hidden", !isHost);
+    document.getElementById("hostSettings").classList.toggle("hidden", !isHost);
+    updateMyPlayerTag();
+    showScreen("lobbyScreen");
+});
+
+socket.on("reconnectFailed", message => {
+    clearLobbySession();
+    currentRoom = "";
+    isHost = false;
+    showScreen("loginScreen");
+    showError(message || "تعذر استعادة الغرفة.");
+});
+
 socket.on("lobbyUpdated", data => {
     const list = document.getElementById("lobbyPlayers");
     list.innerHTML = "";
+
+    isHost = data.hostId === socket.id || isHost;
+    document.getElementById("hostControls").classList.toggle("hidden", !isHost);
+    document.getElementById("hostSettings").classList.toggle("hidden", !isHost);
 
     data.players.forEach(player => {
         const div = document.createElement("div");
@@ -408,13 +632,37 @@ socket.on("lobbyUpdated", data => {
         div.appendChild(getAvatarElement(player.avatar));
 
         const text = document.createElement("span");
-        text.textContent = player.nickName;
+        text.textContent = player.nickName || player.realName;
         text.style.fontWeight = "bold";
 
         div.appendChild(text);
         list.appendChild(div);
     });
 });
+
+function leaveToHome() {
+    clearLobbySession();
+    currentRoom = "";
+    isHost = false;
+    showScreen("loginScreen");
+}
+
+function leaveLobbyToHome() {
+    if (!currentRoom) {
+        showScreen("loginScreen");
+        return;
+    }
+
+    socket.emit("leaveRoom", {
+        roomCode: currentRoom,
+        playerKey
+    });
+
+    clearLobbySession();
+    currentRoom = "";
+    isHost = false;
+    showScreen("loginScreen");
+}
 
 function startGame() {
     const chatDuration = document.getElementById("chatDurationSelect").value;
