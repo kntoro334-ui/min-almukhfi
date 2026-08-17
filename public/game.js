@@ -1,114 +1,85 @@
 const socket = io();
 
 
-// --- تحكم نافذة الإعدادات والأطوال ---
+// --- الإعدادات + التحديات + XP ---
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('settingsModal');
     const openBtn = document.getElementById('openSettingsBtn');
     const closeBtn = document.getElementById('closeSettingsBtn');
     const saveBtn = document.getElementById('saveSettingsBtn');
+    const challengesModal = document.getElementById('challengesModal');
+    const openChallengesBtn = document.getElementById('openChallengesBtn');
+    const closeChallengesBtn = document.getElementById('closeChallengesBtn');
 
-    // عناصر التحكم بالمدى (Sliders)
-    const chatHeightRange = document.getElementById('chatHeightRange');
-    const chatHeightVal = document.getElementById('chatHeightVal');
-    
-    const fontSizeRange = document.getElementById('fontSizeRange');
-    const fontSizeVal = document.getElementById('fontSizeVal');
-    
-    const cardWidthRange = document.getElementById('cardWidthRange');
-    const cardWidthVal = document.getElementById('cardWidthVal');
+    openBtn?.addEventListener('click', () => modal?.classList.remove('hidden'));
+    closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
+    saveBtn?.addEventListener('click', () => { saveLayoutSettings(); modal?.classList.add('hidden'); });
+    openChallengesBtn?.addEventListener('click', () => { challengesModal?.classList.remove('hidden'); requestProgress(); });
+    closeChallengesBtn?.addEventListener('click', () => challengesModal?.classList.add('hidden'));
 
-    // فتح وإغلاق النافذة
-    if (openBtn && modal) {
-        openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
-    }
-    if (closeBtn && modal) {
-        closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    }
-    if (saveBtn && modal) {
-        saveBtn.addEventListener('click', () => {
-            modal.classList.add('hidden');
-            saveLayoutSettings();
-        });
-    }
+    document.getElementById('dailyChallengesTab')?.addEventListener('click', () => switchChallengeTab('daily'));
+    document.getElementById('weeklyChallengesTab')?.addEventListener('click', () => switchChallengeTab('weekly'));
 
-    // استرجاع الإعدادات المحفوظة مسبقاً عند التحميل
+    const ids = ['textScale','cardScale','chatScale','chatWidth','chatHeight','buttonScale','spacingScale'];
+    ids.forEach(id => document.getElementById(id+'Range')?.addEventListener('input', () => applyLayoutSettings(false)));
     loadLayoutSettings();
-
-    // تحديث القيم الحية أثناء السحب
-    if (chatHeightRange) {
-        chatHeightRange.addEventListener('input', (e) => {
-            chatHeightVal.innerText = e.target.value + 'px';
-            applyChatHeight(e.target.value);
-        });
-    }
-
-    if (fontSizeRange) {
-        fontSizeRange.addEventListener('input', (e) => {
-            fontSizeVal.innerText = e.target.value + 'px';
-            applyFontSize(e.target.value);
-        });
-    }
-
-    if (cardWidthRange) {
-        cardWidthRange.addEventListener('input', (e) => {
-            cardWidthVal.innerText = e.target.value + 'px';
-            applyCardWidth(e.target.value);
-        });
-    }
+    requestProgress();
 });
 
-function applyChatHeight(val) {
-    document.querySelectorAll('.chat-box, .spectator-chat, .dead-chat').forEach(box => {
-        box.style.height = val + 'px';
-    });
+function applyLayoutSettings(updateLabels = true) {
+    const get = id => Number(document.getElementById(id+'Range')?.value || 100);
+    const root = document.documentElement;
+    const text = get('textScale'), cards = get('cardScale'), chat = get('chatScale');
+    const chatWidth = get('chatWidth'), chatHeight = get('chatHeight'), buttons = get('buttonScale'), spacing = get('spacingScale');
+    root.style.setProperty('--user-text-scale', text / 100);
+    root.style.setProperty('--user-card-scale', cards / 100);
+    root.style.setProperty('--user-chat-scale', chat / 100);
+    root.style.setProperty('--user-chat-width', chatWidth / 100);
+    root.style.setProperty('--user-chat-height', chatHeight / 100);
+    root.style.setProperty('--user-button-scale', buttons / 100);
+    root.style.setProperty('--user-spacing-scale', spacing / 100);
+    document.body.style.fontSize = `${text / 100}em`;
+    document.querySelectorAll('.card').forEach(el => { el.style.transform = `scale(${cards/100})`; el.style.transformOrigin='top center'; });
+    document.querySelectorAll('.chat-box').forEach(el => { el.style.height = `${320 * chatHeight/100}px`; el.style.width = `${chatWidth}%`; transformChat(el, chat); });
+    document.querySelectorAll('button').forEach(el => { if(!el.closest('.avatar-modal')) el.style.transform=`scale(${buttons/100})`; });
+    document.body.style.setProperty('--settings-spacing', spacing/100);
+    if (updateLabels) updateSettingLabels();
+}
+function transformChat(el, scale){ el.style.fontSize = `${scale}em`; }
+function updateSettingLabels(){
+    const map=[['textScale','%'],['cardScale','%'],['chatScale','%'],['chatWidth','%'],['chatHeight','%'],['buttonScale','%'],['spacingScale','%']];
+    map.forEach(([id,suffix])=>{const r=document.getElementById(id+'Range'),v=document.getElementById(id+'Val');if(r&&v)v.textContent=r.value+suffix;});
+}
+function saveLayoutSettings(){
+    const ids=['textScale','cardScale','chatScale','chatWidth','chatHeight','buttonScale','spacingScale'];
+    const settings={}; ids.forEach(id=>settings[id]=document.getElementById(id+'Range')?.value||100);
+    localStorage.setItem('secretIdentity_layout', JSON.stringify(settings)); applyLayoutSettings();
+}
+function loadLayoutSettings(){
+    let data={}; try{data=JSON.parse(localStorage.getItem('secretIdentity_layout')||'{}')}catch(_){ }
+    const ids=['textScale','cardScale','chatScale','chatWidth','chatHeight','buttonScale','spacingScale'];
+    ids.forEach(id=>{const r=document.getElementById(id+'Range');if(r)r.value=data[id]||100;});
+    applyLayoutSettings();
 }
 
-function applyFontSize(val) {
-    document.body.style.fontSize = val + 'px';
+function updateProfileUI(level, xp) {
+    const levelElem=document.getElementById('current-level'), xpElem=document.getElementById('current-xp'), bar=document.getElementById('xp-bar');
+    if(levelElem)levelElem.textContent=level||1; if(xpElem)xpElem.textContent=xp||0;
+    if(bar)bar.style.width=Math.min(100,Math.max(0,(Number(xp||0)%1000)/10))+'%';
 }
+function getGoogleProfile(){try{return JSON.parse(localStorage.getItem('si_googleProfile')||'null')}catch(_){return null}}
+function requestProgress(){const p=getGoogleProfile();if(p?.email||p?.sub)socket.emit('getProgress',{accountId:p.email||p.sub,email:p.email||''});}
+function renderChallenges(data){
+    const render=(list,id)=>{const box=document.getElementById(id);if(!box)return;box.innerHTML=list.map(c=>`<div class="challenge-item ${c.completed?'done':''}"><div class="challenge-top"><strong>${c.completed?'✅':'🎯'} ${escapeHtml(c.title)}</strong><span class="challenge-reward">+${c.reward} XP</span></div><div class="challenge-progress">${c.progress} / ${c.target}</div><div class="challenge-progress-bar"><div class="challenge-progress-fill" style="width:${Math.min(100,c.progress/c.target*100)}%"></div></div></div>`).join('')||'<div class="challenge-item">لا توجد تحديات.</div>'};
+    render(data.daily||[],'dailyChallengesList');render(data.weekly||[],'weeklyChallengesList');updateProfileUI(data.level,data.xp);
+}
+function switchChallengeTab(tab){
+    document.getElementById('dailyChallengesList')?.classList.toggle('hidden',tab!=='daily');document.getElementById('weeklyChallengesList')?.classList.toggle('hidden',tab!=='weekly');
+    document.getElementById('dailyChallengesTab')?.classList.toggle('active',tab==='daily');document.getElementById('weeklyChallengesTab')?.classList.toggle('active',tab==='weekly');
+}
+socket.on('progressUpdated', renderChallenges);
+socket.on('profileProgress', renderChallenges);
 
-function applyCardWidth(val) {
-    const container = document.querySelector('.container');
-    if (container) {
-        container.style.maxWidth = val + 'px';
-    }
-}
-
-function saveLayoutSettings() {
-    const settings = {
-        chatHeight: document.getElementById('chatHeightRange')?.value || 320,
-        fontSize: document.getElementById('fontSizeRange')?.value || 15,
-        cardWidth: document.getElementById('cardWidthRange')?.value || 850
-    };
-    localStorage.setItem('secretIdentity_layout', JSON.stringify(settings));
-}
-
-function loadLayoutSettings() {
-    const saved = localStorage.getItem('secretIdentity_layout');
-    if (saved) {
-        try {
-            const data = JSON.parse(saved);
-            if (data.chatHeight) {
-                document.getElementById('chatHeightRange').value = data.chatHeight;
-                document.getElementById('chatHeightVal').innerText = data.chatHeight + 'px';
-                applyChatHeight(data.chatHeight);
-            }
-            if (data.fontSize) {
-                document.getElementById('fontSizeRange').value = data.fontSize;
-                document.getElementById('fontSizeVal').innerText = data.fontSize + 'px';
-                applyFontSize(data.fontSize);
-            }
-            if (data.cardWidth) {
-                document.getElementById('cardWidthRange').value = data.cardWidth;
-                document.getElementById('cardWidthVal').innerText = data.cardWidth + 'px';
-                applyCardWidth(data.cardWidth);
-            }
-        } catch(e) {
-            console.error("خطأ في تحميل إعدادات التصميم", e);
-        }
-    }
-}
 // ================= AUDIO SYSTEM =================
 // الأصوات مولّدة محلياً عبر Web Audio API، لذلك لا تحتاج ملفات صوتية خارجية.
 const AudioManager = (() => {
@@ -348,11 +319,14 @@ function handleGoogleCredential(response) {
 
         localStorage.setItem("si_googleProfile", JSON.stringify({
             sub: profile.sub || "",
+            email: profile.email || "",
             name: profile.name || "",
             picture: profile.picture || ""
         }));
 
         saveProfile();
+        socket.emit('registerAccount', { accountId: profile.email || profile.sub, email: profile.email || '', name: profile.name || '' });
+        requestProgress();
 
         const status = document.getElementById("googleLoginStatus");
         if (status) status.textContent = `✅ تم تسجيل الدخول بحساب Google: ${profile.name || ""}`;
@@ -680,7 +654,9 @@ function createRoom() {
         realName,
         nickName,
         avatar: currentAvatarData,
-        playerKey
+        playerKey,
+        accountId: getGoogleProfile()?.email || getGoogleProfile()?.sub || '',
+        email: getGoogleProfile()?.email || ''
     });
 }
 
@@ -702,7 +678,9 @@ function joinRoom() {
         realName,
         nickName,
         avatar: currentAvatarData,
-        playerKey
+        playerKey,
+        accountId: getGoogleProfile()?.email || getGoogleProfile()?.sub || '',
+        email: getGoogleProfile()?.email || ''
     });
 }
 
@@ -720,6 +698,7 @@ socket.on("connect", () => {
             roomCode: session.roomCode,
             playerKey: session.playerKey || playerKey
         });
+        requestProgress();
     } catch (_) {}
 });
 
