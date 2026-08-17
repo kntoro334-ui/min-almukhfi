@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     openBtn?.addEventListener('click', () => modal?.classList.remove('hidden'));
     closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
-    saveBtn?.addEventListener('click', () => { saveLayoutSettings(); modal?.classList.add('hidden'); });
+    saveBtn?.addEventListener('click', () => { saveChatSettings(); modal?.classList.add('hidden'); });
     openChallengesBtn?.addEventListener('click', () => {
         const profile = getGoogleProfile();
         if (!profile?.email && !profile?.sub) {
@@ -31,49 +31,75 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('dailyChallengesTab')?.addEventListener('click', () => switchChallengeTab('daily'));
     document.getElementById('weeklyChallengesTab')?.addEventListener('click', () => switchChallengeTab('weekly'));
 
-    const ids = ['textScale','cardScale','chatScale','chatWidth','chatHeight','buttonScale','spacingScale'];
-    ids.forEach(id => document.getElementById(id+'Range')?.addEventListener('input', () => applyLayoutSettings(false)));
-    loadLayoutSettings();
-    requestProgress();
+    const ids = ['chatTextScale','chatMessageScale','chatWidth','chatHeight','chatAvatarScale'];
+    ids.forEach(id => document.getElementById(id+'Range')?.addEventListener('input', () => applyChatSettings(false)));
+    loadChatSettings();
+
 });
 
-function applyLayoutSettings(updateLabels = true) {
+function applyChatSettings(updateLabels = true) {
     const get = id => Number(document.getElementById(id+'Range')?.value || 100);
     const root = document.documentElement;
-    const text = get('textScale'), cards = get('cardScale'), chat = get('chatScale');
-    const chatWidth = get('chatWidth'), chatHeight = get('chatHeight'), buttons = get('buttonScale'), spacing = get('spacingScale');
-    root.style.setProperty('--user-text-scale', text / 100);
-    root.style.setProperty('--user-card-scale', cards / 100);
-    root.style.setProperty('--user-chat-scale', chat / 100);
-    root.style.setProperty('--user-chat-width', chatWidth / 100);
-    root.style.setProperty('--user-chat-height', chatHeight / 100);
-    root.style.setProperty('--user-button-scale', buttons / 100);
-    root.style.setProperty('--user-spacing-scale', spacing / 100);
-    document.body.style.fontSize = `${text / 100}em`;
-    document.querySelectorAll('.card').forEach(el => { el.style.transform = `scale(${cards/100})`; el.style.transformOrigin='top center'; });
-    document.querySelectorAll('.chat-box').forEach(el => { el.style.height = `${320 * chatHeight/100}px`; el.style.width = `${chatWidth}%`; transformChat(el, chat); });
-    document.querySelectorAll('button').forEach(el => { if(!el.closest('.avatar-modal')) el.style.transform=`scale(${buttons/100})`; });
-    document.body.style.setProperty('--settings-spacing', spacing/100);
-    if (updateLabels) updateSettingLabels();
+    const text = get('chatTextScale');
+    const message = get('chatMessageScale');
+    const width = get('chatWidth');
+    const height = get('chatHeight');
+    const avatar = get('chatAvatarScale');
+
+    root.style.setProperty('--chat-text-scale', text / 100);
+    root.style.setProperty('--chat-message-scale', message / 100);
+    root.style.setProperty('--chat-width-scale', width / 100);
+    root.style.setProperty('--chat-height-scale', height / 100);
+    root.style.setProperty('--chat-avatar-scale', avatar / 100);
+
+    if (updateLabels) updateChatSettingLabels();
 }
-function transformChat(el, scale){ el.style.fontSize = `${scale}em`; }
-function updateSettingLabels(){
-    const map=[['textScale','%'],['cardScale','%'],['chatScale','%'],['chatWidth','%'],['chatHeight','%'],['buttonScale','%'],['spacingScale','%']];
-    map.forEach(([id,suffix])=>{const r=document.getElementById(id+'Range'),v=document.getElementById(id+'Val');if(r&&v)v.textContent=r.value+suffix;});
+
+function updateChatSettingLabels() {
+    const map = [
+        ['chatTextScale','%'],
+        ['chatMessageScale','%'],
+        ['chatWidth','%'],
+        ['chatHeight','%'],
+        ['chatAvatarScale','%']
+    ];
+    map.forEach(([id, suffix]) => {
+        const r = document.getElementById(id+'Range');
+        const v = document.getElementById(id+'Val');
+        if (r && v) v.textContent = r.value + suffix;
+    });
 }
-function saveLayoutSettings(){
-    const ids=['textScale','cardScale','chatScale','chatWidth','chatHeight','buttonScale','spacingScale'];
-    const settings={}; ids.forEach(id=>settings[id]=document.getElementById(id+'Range')?.value||100);
-    localStorage.setItem('secretIdentity_layout', JSON.stringify(settings)); applyLayoutSettings();
+
+function saveChatSettings() {
+    const ids = ['chatTextScale','chatMessageScale','chatWidth','chatHeight','chatAvatarScale'];
+    const settings = {};
+    ids.forEach(id => settings[id] = document.getElementById(id+'Range')?.value || 100);
+    localStorage.setItem('secretIdentity_chatSettings', JSON.stringify(settings));
+    applyChatSettings();
 }
-function loadLayoutSettings(){
-    let data={}; try{data=JSON.parse(localStorage.getItem('secretIdentity_layout')||'{}')}catch(_){ }
-    const ids=['textScale','cardScale','chatScale','chatWidth','chatHeight','buttonScale','spacingScale'];
-    ids.forEach(id=>{const r=document.getElementById(id+'Range');if(r)r.value=data[id]||100;});
-    applyLayoutSettings();
+
+function loadChatSettings() {
+    let data = {};
+    try { data = JSON.parse(localStorage.getItem('secretIdentity_chatSettings') || '{}'); } catch (_) {}
+    const ids = ['chatTextScale','chatMessageScale','chatWidth','chatHeight','chatAvatarScale'];
+    ids.forEach(id => {
+        const r = document.getElementById(id+'Range');
+        if (r) r.value = data[id] ?? 100;
+    });
+    applyChatSettings();
+}
+
+function resetChatSettings() {
+    const ids = ['chatTextScale','chatMessageScale','chatWidth','chatHeight','chatAvatarScale'];
+    ids.forEach(id => {
+        const r = document.getElementById(id+'Range');
+        if (r) r.value = 100;
+    });
+    saveChatSettings();
 }
 
 function updateProfileUI(level, xp) {
+
     const levelElem=document.getElementById('current-level'), xpElem=document.getElementById('current-xp'), bar=document.getElementById('xp-bar');
     if(levelElem)levelElem.textContent=level||1; if(xpElem)xpElem.textContent=xp||0;
     if(bar)bar.style.width=Math.min(100,Math.max(0,(Number(xp||0)%1000)/10))+'%';
