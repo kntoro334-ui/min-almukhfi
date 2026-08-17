@@ -501,6 +501,9 @@ function startVotePhase(roomCode) {
     const shuffledPlayers = [...alivePlayers]
         .sort(() => Math.random() - 0.5);
 
+    // أهداف التصويت = اللاعبون الأحياء فقط.
+    // قائمة الأسماء الحقيقية = جميع لاعبي الجولة، بما فيهم من تم استبعاده،
+    // وتبقى ثابتة حتى نهاية اللعبة.
     io.to(roomCode).emit("phaseChanged", {
         phase: "VOTE",
         players: shuffledPlayers.map(p => ({
@@ -510,7 +513,8 @@ function startVotePhase(roomCode) {
         })),
         aliveNickNames: shuffledPlayers.map(p => p.nickName),
         realNames: shuffledPlayers.map(p => p.realName),
-        avatars: shuffledPlayers.map(p => p.avatar)
+        avatars: shuffledPlayers.map(p => p.avatar),
+        allRealNames: room.players.map(p => p.realName)
     });
 
     playSound(roomCode, "vote");
@@ -712,8 +716,7 @@ function startFinalGuess(roomCode) {
 
     io.to(roomCode).emit("finalGuessStarted", {
         players: alivePlayers.map(p => p.nickName),
-
-    // جميع اللاعبين، الأحياء والمستبعدين
+        realNames: room.players.map(p => p.realName),
         identityOptions: room.players.map(p => ({
             realName: p.realName,
             nickName: p.nickName,
