@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Secret Identity 🎭</title>
     <link rel="stylesheet" href="/style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 
 /* ================= MOBILE OPTIMIZATION ================= */
@@ -339,6 +340,11 @@ input, select, textarea, button {
             <h1>🎭 Secret Identity</h1>
             <p class="subtitle">اكشف هويات الآخرين واحمِ هويتك الخفية</p>
 
+            <div class="google-login-box">
+                <div id="googleSignInButton"></div>
+                <div id="googleLoginStatus" class="google-login-status"></div>
+            </div>
+
             <div class="avatar-section">
                 <div class="avatar-circle selected" style="background-color:#ef4444" onclick="selectAvatar(this, '#ef4444')"></div>
                 <div class="avatar-circle" style="background-color:#3b82f6" onclick="selectAvatar(this, '#3b82f6')"></div>
@@ -408,6 +414,8 @@ input, select, textarea, button {
 
             <h3>👥 اللاعبون المتواجدون</h3>
             <div id="lobbyPlayers" class="players"></div>
+
+            <button type="button" class="back-home-btn" onclick="leaveLobbyToHome()">🔙 الرجوع للرئيسية</button>
 
             <div id="hostSettings" class="settings-box hidden">
                 <h3>⚙️ إعدادات اللعبة</h3>
@@ -564,7 +572,7 @@ input, select, textarea, button {
             <div id="rankingsList" class="rankings-list"></div>
 
             <div class="buttons result-buttons">
-                <button onclick="location.reload()">🔄 العودة للرئيسية</button>
+                <button onclick="leaveToHome()">🔄 العودة للرئيسية</button>
             </div>
         </div>
     </section>
