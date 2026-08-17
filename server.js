@@ -72,8 +72,15 @@ io.on("connection", socket => {
             }
         });
 
+        const shuffledPlayers = [...room.players]
+            .sort(() => Math.random() - 0.5);
+
         io.to(roomCode).emit("lobbyUpdated", {
-            players: rooms[roomCode].players
+            players: shuffledPlayers.map(p => ({
+                id: p.id,
+                realName: p.realName
+            })),
+            playerCount: room.players.length
         });
     });
 
@@ -120,9 +127,16 @@ io.on("connection", socket => {
             }
         });
 
+        const shuffledPlayers = [...room.players]
+        .sort(() => Math.random() - 0.5);
+
         io.to(roomCode).emit("lobbyUpdated", {
-            players: room.players
-        });
+        players: shuffledPlayers.map(p => ({
+                id: p.id,
+                realName: p.realName
+            })),
+            playerCount: room.players.length
+});
     });
 
     socket.on("startGame", data => {
@@ -222,7 +236,7 @@ io.on("connection", socket => {
         socket.emit("audioEvent", { name: "lock" });
 
         const alivePlayers = room.players.filter(p => p.isAlive);
-
+        const shuffledPlayers = [...alivePlayers].sort(() => Math.random() - 0.5);
         if (
             alivePlayers.length > 0 &&
             alivePlayers.every(p => Object.keys(p.votes).length > 0)
@@ -318,11 +332,11 @@ function startVotePhase(roomCode) {
     const alivePlayers = room.players.filter(p => p.isAlive);
 
     io.to(roomCode).emit("phaseChanged", {
-        phase: "VOTE",
-        aliveNickNames: alivePlayers.map(p => p.nickName),
-        realNames: room.players.map(p => p.realName),
-        avatars: alivePlayers.map(p => p.avatar)
-    });
+    phase: "VOTE",
+    aliveNickNames: shuffledPlayers.map(p => p.nickName),
+    realNames: shuffledPlayers.map(p => p.realName),
+    avatars: shuffledPlayers.map(p => p.avatar)
+});
 
     playSound(roomCode, "vote");
 
