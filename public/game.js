@@ -1,5 +1,114 @@
 const socket = io();
 
+
+// --- تحكم نافذة الإعدادات والأطوال ---
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('settingsModal');
+    const openBtn = document.getElementById('openSettingsBtn');
+    const closeBtn = document.getElementById('closeSettingsBtn');
+    const saveBtn = document.getElementById('saveSettingsBtn');
+
+    // عناصر التحكم بالمدى (Sliders)
+    const chatHeightRange = document.getElementById('chatHeightRange');
+    const chatHeightVal = document.getElementById('chatHeightVal');
+    
+    const fontSizeRange = document.getElementById('fontSizeRange');
+    const fontSizeVal = document.getElementById('fontSizeVal');
+    
+    const cardWidthRange = document.getElementById('cardWidthRange');
+    const cardWidthVal = document.getElementById('cardWidthVal');
+
+    // فتح وإغلاق النافذة
+    if (openBtn && modal) {
+        openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
+    }
+    if (closeBtn && modal) {
+        closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    }
+    if (saveBtn && modal) {
+        saveBtn.addEventListener('click', () => {
+            modal.classList.add('hidden');
+            saveLayoutSettings();
+        });
+    }
+
+    // استرجاع الإعدادات المحفوظة مسبقاً عند التحميل
+    loadLayoutSettings();
+
+    // تحديث القيم الحية أثناء السحب
+    if (chatHeightRange) {
+        chatHeightRange.addEventListener('input', (e) => {
+            chatHeightVal.innerText = e.target.value + 'px';
+            applyChatHeight(e.target.value);
+        });
+    }
+
+    if (fontSizeRange) {
+        fontSizeRange.addEventListener('input', (e) => {
+            fontSizeVal.innerText = e.target.value + 'px';
+            applyFontSize(e.target.value);
+        });
+    }
+
+    if (cardWidthRange) {
+        cardWidthRange.addEventListener('input', (e) => {
+            cardWidthVal.innerText = e.target.value + 'px';
+            applyCardWidth(e.target.value);
+        });
+    }
+});
+
+function applyChatHeight(val) {
+    document.querySelectorAll('.chat-box, .spectator-chat, .dead-chat').forEach(box => {
+        box.style.height = val + 'px';
+    });
+}
+
+function applyFontSize(val) {
+    document.body.style.fontSize = val + 'px';
+}
+
+function applyCardWidth(val) {
+    const container = document.querySelector('.container');
+    if (container) {
+        container.style.maxWidth = val + 'px';
+    }
+}
+
+function saveLayoutSettings() {
+    const settings = {
+        chatHeight: document.getElementById('chatHeightRange')?.value || 320,
+        fontSize: document.getElementById('fontSizeRange')?.value || 15,
+        cardWidth: document.getElementById('cardWidthRange')?.value || 850
+    };
+    localStorage.setItem('secretIdentity_layout', JSON.stringify(settings));
+}
+
+function loadLayoutSettings() {
+    const saved = localStorage.getItem('secretIdentity_layout');
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            if (data.chatHeight) {
+                document.getElementById('chatHeightRange').value = data.chatHeight;
+                document.getElementById('chatHeightVal').innerText = data.chatHeight + 'px';
+                applyChatHeight(data.chatHeight);
+            }
+            if (data.fontSize) {
+                document.getElementById('fontSizeRange').value = data.fontSize;
+                document.getElementById('fontSizeVal').innerText = data.fontSize + 'px';
+                applyFontSize(data.fontSize);
+            }
+            if (data.cardWidth) {
+                document.getElementById('cardWidthRange').value = data.cardWidth;
+                document.getElementById('cardWidthVal').innerText = data.cardWidth + 'px';
+                applyCardWidth(data.cardWidth);
+            }
+        } catch(e) {
+            console.error("خطأ في تحميل إعدادات التصميم", e);
+        }
+    }
+}
 // ================= AUDIO SYSTEM =================
 // الأصوات مولّدة محلياً عبر Web Audio API، لذلك لا تحتاج ملفات صوتية خارجية.
 const AudioManager = (() => {
