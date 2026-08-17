@@ -339,7 +339,16 @@ input, select, textarea, button {
         <div class="card">
             <h1>🎭 Secret Identity</h1>
             <p class="subtitle">اكشف هويات الآخرين واحمِ هويتك الخفية</p>
-
+            <div class="player-profile-card" style="margin: 15px 0; text-align: right;">
+                <div class="profile-header">
+                    <h3 id="profile-name-display" style="margin:0;">مستوى الموسم</h3>
+                    <span class="season-badge">الموسم 1</span>
+                </div>
+                <div class="season-bar-container">
+                    <div class="season-bar-fill" id="xp-bar" style="width: 0%;"></div>
+                    <div class="level-text">مستوى <span id="current-level">1</span> ( <span id="current-xp">0</span> / 1000 XP )</div>
+                </div>
+            </div>
             <div class="google-login-box">
                 <div id="googleSignInButton"></div>
                 <div id="googleLoginStatus" class="google-login-status"></div>
