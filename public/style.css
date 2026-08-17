@@ -932,3 +932,24 @@ hr {
     accent-color: var(--accent-color);
     cursor: pointer;
 }
+
+/* ================= XP + CHALLENGES ================= */
+.top-action-row{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+.challenges-trigger-btn{background:linear-gradient(135deg,#7c3aed,#db2777);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:12px;padding:10px 16px;font-weight:800;cursor:pointer;box-shadow:0 8px 22px rgba(124,58,237,.2)}
+.global-xp-card{margin:0 auto 14px;max-width:850px;padding:10px 13px;border:1px solid var(--border-color);border-radius:14px;background:rgba(10,10,20,.62);backdrop-filter:blur(8px);box-shadow:0 0 18px rgba(0,0,0,.15)}
+.global-xp-head,.global-xp-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--text-highlight)}
+.global-xp-foot{justify-content:flex-end;color:#9ca3af;margin-top:4px}
+.global-xp-card .season-bar-container{height:11px;margin-top:7px;overflow:hidden;border-radius:8px;background:rgba(0,0,0,.45);border:1px solid var(--border-color)}
+.global-xp-card .season-bar-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--accent-color),var(--text-highlight));transition:width .35s ease}
+.settings-scale-note{font-size:12px;color:#9ca3af;margin:0 0 10px}
+.challenge-account-status{padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.05);font-size:12px;color:#cbd5e1;margin-bottom:10px}
+.challenge-tabs{display:flex;gap:8px;margin-bottom:12px}.challenge-tab{flex:1;padding:9px;border:1px solid var(--border-color);border-radius:10px;background:rgba(255,255,255,.05);color:inherit;cursor:pointer}.challenge-tab.active{background:var(--accent-color);color:#fff}
+.challenge-item{padding:12px;border:1px solid var(--border-color);border-radius:12px;background:rgba(255,255,255,.04);margin-bottom:9px}.challenge-item.completed{opacity:.72}.challenge-title{font-weight:800}.challenge-desc{font-size:12px;color:#9ca3af;margin-top:4px}.challenge-progress{height:7px;background:rgba(0,0,0,.35);border-radius:5px;overflow:hidden;margin-top:9px}.challenge-progress>div{height:100%;background:var(--accent-color);border-radius:5px}.challenge-meta{display:flex;justify-content:space-between;gap:8px;font-size:11px;margin-top:7px;color:#cbd5e1}.challenge-reward{font-weight:800;color:#fbbf24}
+
+
+/* XP + challenges */
+.top-action-row{display:flex;gap:10px;width:100%;margin:10px 0}.top-action-row .settings-trigger-btn{margin:0;flex:1}.challenges-trigger-btn{background:rgba(245,158,11,.12)}
+.bottom-xp-bar{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);width:min(850px,calc(100% - 24px));z-index:1000;background:rgba(10,12,22,.94);backdrop-filter:blur(10px);border:1px solid var(--border-color);border-radius:14px;padding:9px 12px;box-shadow:0 8px 30px rgba(0,0,0,.3)}
+.xp-header-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text-highlight);margin-bottom:6px}.xp-track{height:9px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.1)}.xp-fill{height:100%;width:0;background:linear-gradient(90deg,var(--accent-color),var(--text-highlight));transition:width .35s ease}
+.challenges-card{max-height:85vh;overflow:auto}.challenge-tabs{display:flex;gap:8px;margin:12px 0}.challenge-tab{flex:1}.challenge-tab.active{outline:2px solid var(--accent-color)}.challenge-item{border:1px solid var(--border-color);border-radius:12px;padding:12px;margin:8px 0;background:rgba(255,255,255,.04)}.challenge-item.done{opacity:.65}.challenge-top{display:flex;justify-content:space-between;gap:10px}.challenge-progress{font-size:12px;color:#aaa;margin-top:6px}.challenge-reward{color:#fbbf24;font-weight:bold}.challenge-progress-bar{height:6px;background:rgba(255,255,255,.1);border-radius:6px;margin-top:7px;overflow:hidden}.challenge-progress-fill{height:100%;background:var(--accent-color);width:0}
+body{padding-bottom:75px}.settings-section{--settings-scale:1}.settings-control-group{margin:calc(12px * var(--settings-spacing,1)) 0}
