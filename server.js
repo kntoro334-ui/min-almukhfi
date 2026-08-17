@@ -72,6 +72,8 @@ io.on("connection", socket => {
             }
         });
 
+        const room = rooms[roomCode];
+
         const shuffledPlayers = [...room.players]
             .sort(() => Math.random() - 0.5);
 
@@ -289,8 +291,15 @@ io.on("connection", socket => {
                 }
             }
 
+            const shuffledPlayers = [...room.players]
+                .sort(() => Math.random() - 0.5);
+
             io.to(roomCode).emit("lobbyUpdated", {
-                players: room.players
+                players: shuffledPlayers.map(p => ({
+                    id: p.id,
+                    realName: p.realName
+                })),
+                playerCount: room.players.length
             });
         }
     });
@@ -331,12 +340,15 @@ function startVotePhase(roomCode) {
 
     const alivePlayers = room.players.filter(p => p.isAlive);
 
+    const shuffledPlayers = [...alivePlayers]
+        .sort(() => Math.random() - 0.5);
+
     io.to(roomCode).emit("phaseChanged", {
-    phase: "VOTE",
-    aliveNickNames: shuffledPlayers.map(p => p.nickName),
-    realNames: shuffledPlayers.map(p => p.realName),
-    avatars: shuffledPlayers.map(p => p.avatar)
-});
+        phase: "VOTE",
+        aliveNickNames: shuffledPlayers.map(p => p.nickName),
+        realNames: shuffledPlayers.map(p => p.realName),
+        avatars: shuffledPlayers.map(p => p.avatar)
+    });
 
     playSound(roomCode, "vote");
 
