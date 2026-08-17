@@ -14,7 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
     openBtn?.addEventListener('click', () => modal?.classList.remove('hidden'));
     closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
     saveBtn?.addEventListener('click', () => { saveLayoutSettings(); modal?.classList.add('hidden'); });
-    openChallengesBtn?.addEventListener('click', () => { challengesModal?.classList.remove('hidden'); requestProgress(); });
+    openChallengesBtn?.addEventListener('click', () => {
+        const profile = getGoogleProfile();
+        if (!profile?.email && !profile?.sub) {
+            challengesModal?.classList.add('hidden');
+            modal?.classList.remove('hidden');
+            const status = document.getElementById('googleLoginStatus');
+            if (status) status.textContent = '🔒 يجب تسجيل الدخول بحساب Google أولاً لفتح التحديات.';
+            return;
+        }
+        challengesModal?.classList.remove('hidden');
+        requestProgress();
+    });
     closeChallengesBtn?.addEventListener('click', () => challengesModal?.classList.add('hidden'));
 
     document.getElementById('dailyChallengesTab')?.addEventListener('click', () => switchChallengeTab('daily'));
@@ -279,7 +290,7 @@ async function initGoogleLogin() {
             });
 
             google.accounts.id.renderButton(container, {
-                theme: "outline",
+                theme: getGoogleButtonTheme(),
                 size: "large",
                 text: "signin_with",
                 shape: "rectangular",
@@ -292,6 +303,14 @@ async function initGoogleLogin() {
     } catch (error) {
         if (status) status.textContent = "تعذر تجهيز تسجيل الدخول بحساب Google.";
     }
+}
+
+
+function getGoogleButtonTheme() {
+    const theme = document.documentElement.getAttribute("data-theme") || "default";
+    return ["dark", "matrix", "neon", "blue", "red", "cyan", "pink", "orange", "gold"].includes(theme)
+        ? "filled_black"
+        : "outline";
 }
 
 function decodeGoogleCredential(credential) {
