@@ -536,7 +536,13 @@ function startFinalGuess(roomCode) {
 
     io.to(roomCode).emit("finalGuessStarted", {
         players: alivePlayers.map(p => p.nickName),
-        realNames: room.players.map(p => p.realName)
+
+    // جميع اللاعبين، الأحياء والمستبعدين
+        identityOptions: room.players.map(p => ({
+            realName: p.realName,
+            nickName: p.nickName,
+            avatar: p.avatar
+        }))
     });
     playSound(roomCode, "final");
 }
