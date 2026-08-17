@@ -1019,3 +1019,84 @@ body{padding-bottom:75px}.settings-section{--settings-scale:1}.settings-control-
         min-width: 0;
     }
 }
+
+/* ===== إصلاح وتحسين المحادثة وإعدادات الوصول ===== */
+:root {
+    --chat-text-scale: 1;
+    --chat-message-scale: 1;
+    --chat-width-scale: 1;
+    --chat-height-scale: 1;
+    --chat-avatar-scale: 1;
+}
+
+.settings-help {
+    margin: 0 0 12px;
+    color: #a1a1aa;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+.chat-settings-section {
+    background: rgba(255,255,255,.025);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    padding: 12px;
+}
+
+.chat-settings-section .settings-control-group {
+    margin: 14px 0;
+}
+
+/* لا نستخدم transform على البطاقة أو الأزرار؛ فقط نكبر منطقة المحادثة نفسها */
+.chat-box {
+    width: calc(100% * var(--chat-width-scale));
+    height: clamp(220px, calc(320px * var(--chat-height-scale)), 760px);
+    margin-left: auto;
+    margin-right: auto;
+    padding: calc(15px * var(--chat-message-scale));
+    font-size: calc(14px * var(--chat-text-scale));
+    line-height: 1.65;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transition: width .18s ease, height .18s ease, font-size .18s ease;
+}
+
+.message {
+    padding: calc(12px * var(--chat-message-scale)) calc(15px * var(--chat-message-scale));
+    gap: calc(12px * var(--chat-message-scale));
+    margin-bottom: calc(10px * var(--chat-message-scale));
+    border-radius: calc(12px * var(--chat-message-scale));
+    align-items: flex-start;
+}
+
+.message-content {
+    font-size: inherit;
+    line-height: 1.7;
+    min-width: 0;
+}
+
+.message strong {
+    font-size: 1em;
+}
+
+.mini-avatar {
+    width: calc(38px * var(--chat-avatar-scale));
+    height: calc(38px * var(--chat-avatar-scale));
+    min-width: calc(38px * var(--chat-avatar-scale));
+}
+
+.chat-input input {
+    font-size: max(16px, calc(15px * var(--chat-text-scale)));
+    min-height: calc(52px * var(--chat-message-scale));
+}
+
+.chat-input button {
+    min-height: calc(52px * var(--chat-message-scale));
+}
+
+/* على الشاشات الصغيرة: لا نسمح للعرض المكبّر بكسر الصفحة */
+@media (max-width: 600px) {
+    .chat-box {
+        width: 100%;
+    }
+}
