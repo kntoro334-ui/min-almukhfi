@@ -8,10 +8,28 @@ const app = express();
 const server = http.createServer(app);
 
 const io = new Server(server, {
-    maxHttpBufferSize: 5e6
+    maxHttpBufferSize: 2e6,
+    pingTimeout: 20000,
+    pingInterval: 25000,
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 20000,
+        skipMiddlewares: true
+    }
 });
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json({ limit: "64kb" }));
+app.use(express.urlencoded({ extended: false, limit: "32kb" }));
+app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    next();
+});
+
+app.use(express.static(path.join(__dirname, "public"), {
+    maxAge: "1h",
+    etag: true
+}));
 
 const rooms = {};
 const DATA_DIR = path.join(__dirname, "data");
@@ -19,27 +37,122 @@ const PLAYERS_FILE = path.join(DATA_DIR, "players.json");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 let playerProfiles = {};
 try { playerProfiles = JSON.parse(fs.readFileSync(PLAYERS_FILE, "utf8")); } catch (_) { playerProfiles = {}; }
-function savePlayerProfiles(){ try { fs.writeFileSync(PLAYERS_FILE, JSON.stringify(playerProfiles, null, 2)); } catch(e){ console.error("تعذر حفظ بيانات اللاعبين", e); } }
+let profileSaveTimer = null;
+function savePlayerProfilesNow(){
+    try {
+        fs.writeFileSync(PLAYERS_FILE, JSON.stringify(playerProfiles, null, 2));
+    } catch(e){
+        console.error("تعذر حفظ بيانات اللاعبين", e);
+    }
+}
+function savePlayerProfiles(){
+    clearTimeout(profileSaveTimer);
+    profileSaveTimer = setTimeout(() => { profileSaveTimer = null; savePlayerProfilesNow(); }, 500);
+}
+process.on("SIGINT", () => { savePlayerProfilesNow(); process.exit(0); });
+process.on("SIGTERM", () => { savePlayerProfilesNow(); process.exit(0); });
 const DAILY_CHALLENGES = [
-  {id:"daily_time",title:"العب لمدة 30 دقيقة",target:30,reward:100},
-  {id:"daily_rounds",title:"أكمل 3 جولات",target:3,reward:150},
-  {id:"daily_hidden4",title:"لا تنكشف في جولة فيها أكثر من 4 لاعبين",target:1,reward:200},
-  {id:"daily_guesses",title:"خمّن هوية لاعب بشكل صحيح 5 مرات",target:5,reward:250}
+  {id:"daily_time",title:"العب لمدة 30 دقيقة",description:"اجمع 30 دقيقة من وقت اللعب خلال اليوم.",target:30,reward:100},
+  {id:"daily_rounds",title:"أكمل 3 جولات",description:"شارك في ثلاث جولات مكتملة حتى النهاية.",target:3,reward:150},
+  {id:"daily_hidden4",title:"لا تنكشف في جولة فيها أكثر من 4 لاعبين",description:"أكمل جولة وأنت مخفي بينما عدد المشاركين أكثر من أربعة.",target:1,reward:200},
+  {id:"daily_guesses",title:"خمّن هوية لاعب بشكل صحيح 5 مرات",description:"طابق خمسة أسماء مستعارة مع الأسماء الحقيقية الصحيحة أثناء التصويت.",target:5,reward:250}
 ];
 const WEEKLY_CHALLENGES = [
-  {id:"weekly_time",title:"العب لمدة 3 ساعات",target:180,reward:500},
-  {id:"weekly_rounds",title:"أكمل 20 جولة",target:20,reward:750},
-  {id:"weekly_hidden",title:"لا تنكشف 10 مرات",target:10,reward:1000},
-  {id:"weekly_guesses",title:"خمّن 25 هوية بشكل صحيح",target:25,reward:1200}
+  {id:"weekly_time",title:"العب لمدة 3 ساعات",description:"اجمع 180 دقيقة من اللعب خلال الأسبوع.",target:180,reward:500},
+  {id:"weekly_rounds",title:"أكمل 20 جولة",description:"شارك في عشرين جولة مكتملة خلال الأسبوع.",target:20,reward:750},
+  {id:"weekly_hidden",title:"لا تنكشف 10 مرات",description:"نجح في البقاء مخفياً في عشر جولات مختلفة.",target:10,reward:1000},
+  {id:"weekly_guesses",title:"خمّن 25 هوية بشكل صحيح",description:"احصل على 25 تخمين هوية صحيح خلال الأسبوع.",target:25,reward:1200}
 ];
-function dayKey(){return new Date().toISOString().slice(0,10)}
-function weekKey(){const d=new Date(); const first=new Date(d); first.setDate(d.getDate()-d.getDay()); return first.toISOString().slice(0,10)}
-function ensureProfile(id,email="",name=""){if(!id)return null; let p=playerProfiles[id]; if(!p)p=playerProfiles[id]={accountId:id,email,name,level:1,xp:0,dailyKey:dayKey(),weeklyKey:weekKey(),daily:{},weekly:{},totalPlayMinutes:0}; if(p.dailyKey!==dayKey()){p.dailyKey=dayKey();p.daily={}} if(p.weeklyKey!==weekKey()){p.weeklyKey=weekKey();p.weekly={}} p.email=email||p.email||'';p.name=name||p.name||''; return p}
+function riyadhParts(){
+    const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Riyadh", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })
+        .formatToParts(new Date());
+    return Object.fromEntries(parts.filter(p => p.type !== "literal").map(p => [p.type, p.value]));
+}
+function dayKey(){const p=riyadhParts(); return `${p.year}-${p.month}-${p.day}`;}
+function weekKey(){
+    const p=riyadhParts();
+    const d = new Date(`${p.year}-${p.month}-${p.day}T12:00:00+03:00`);
+    d.setDate(d.getDate() - d.getDay());
+    return d.toISOString().slice(0,10);
+}
+function ensureProfile(id,email="",name=""){
+    id = normalizeAccountId(id);
+    if(!id)return null;
+    let p=playerProfiles[id];
+    if(!p)p=playerProfiles[id]={accountId:id,email:cleanText(email,180).toLowerCase(),name:cleanText(name,80),level:1,xp:0,dailyKey:dayKey(),weeklyKey:weekKey(),daily:{},weekly:{},totalPlayMinutes:0};
+    if(p.dailyKey!==dayKey()){p.dailyKey=dayKey();p.daily={};}
+    if(p.weeklyKey!==weekKey()){p.weeklyKey=weekKey();p.weekly={};}
+    p.email=cleanText(email,180).toLowerCase()||p.email||'';
+    p.name=cleanText(name,80)||p.name||'';
+    p.totalPlayMinutes=Number(p.totalPlayMinutes||0);
+    return p
+}
 function challengeList(p, defs, bucket){return defs.map(d=>({id:d.id,title:d.title,target:d.target,reward:d.reward,progress:Number(p[bucket][d.id]||0),completed:Number(p[bucket][d.id]||0)>=d.target}))}
 function publicProgress(p){return {level:p.level,xp:p.xp,daily:challengeList(p,DAILY_CHALLENGES,'daily'),weekly:challengeList(p,WEEKLY_CHALLENGES,'weekly')}}
 function addXP(id, amount){const p=ensureProfile(id);if(!p)return; p.xp+=Math.max(0,amount); while(p.xp>=1000){p.xp-=1000;p.level++} savePlayerProfiles(); return p}
-function addChallengeProgress(id, key, amount=1){const p=ensureProfile(id);if(!p)return; for(const [bucket,defs] of [["daily",DAILY_CHALLENGES],["weekly",WEEKLY_CHALLENGES]]){const d=defs.find(x=>x.id===key || (key.startsWith('time')&&x.id===bucket+'_time') || (key.startsWith('rounds')&&x.id===bucket+'_rounds') || (key.startsWith('hidden4')&&x.id===bucket+'_hidden4') || (key==='hidden'&&x.id===bucket+'_hidden') || (key.startsWith('guesses')&&x.id===bucket+'_guesses'));if(!d)continue;const old=Number(p[bucket][d.id]||0), next=Math.min(d.target,old+amount);p[bucket][d.id]=next;if(old<d.target&&next>=d.target)addXP(id,d.reward)} savePlayerProfiles(); return p}
+function addChallengeProgress(id, key, amount=1){
+    const p=ensureProfile(id);
+    if(!p)return;
+    if(key === 'time') p.totalPlayMinutes += Math.max(0, Number(amount) || 0);
+    for(const [bucket,defs] of [["daily",DAILY_CHALLENGES],["weekly",WEEKLY_CHALLENGES]]){
+        const d=defs.find(x=>x.id===key || (key.startsWith('time')&&x.id===bucket+'_time') || (key.startsWith('rounds')&&x.id===bucket+'_rounds') || (key.startsWith('hidden4')&&x.id===bucket+'_hidden4') || (key==='hidden'&&x.id===bucket+'_hidden') || (key.startsWith('guesses')&&x.id===bucket+'_guesses'));
+        if(!d)continue;
+        const old=Number(p[bucket][d.id]||0), next=Math.min(d.target,old+Math.max(0, Number(amount)||0));
+        p[bucket][d.id]=next;
+        if(old<d.target&&next>=d.target)addXP(id,d.reward);
+    }
+    savePlayerProfiles();
+    return p
+}
 function progressForPlayer(id){const p=ensureProfile(id); if(!p)return null; return publicProgress(p)}
+
+// --------- Basic anti-spam / anti-abuse guards ---------
+const SOCKET_EVENT_LIMITS = {
+    createRoom: [3, 15000],
+    joinRoom: [6, 15000],
+    reconnectRoom: [8, 15000],
+    startGame: [4, 15000],
+    leaveRoom: [6, 15000],
+    kickPlayer: [10, 15000],
+    sendMessage: [6, 5000],
+    sendSpectatorMessage: [6, 5000],
+    submitVotes: [4, 10000],
+    submitFinalGuess: [4, 10000],
+    registerAccount: [5, 10000],
+    getProgress: [10, 10000]
+};
+
+function allowSocketEvent(socket, eventName) {
+    const [maxCount, windowMs] = SOCKET_EVENT_LIMITS[eventName] || [20, 10000];
+    const now = Date.now();
+    socket.data.eventHits ||= {};
+    const hits = socket.data.eventHits[eventName] || [];
+    const recent = hits.filter(ts => now - ts < windowMs);
+    if (recent.length >= maxCount) {
+        socket.data.eventHits[eventName] = recent;
+        return false;
+    }
+    recent.push(now);
+    socket.data.eventHits[eventName] = recent;
+    return true;
+}
+
+function cleanText(value, max = 40) {
+    return String(value ?? "").replace(/[\u0000-\u001F\u007F]/g, "").trim().slice(0, max);
+}
+
+function cleanAvatar(value) {
+    const avatar = String(value ?? "");
+    if (!avatar) return "#ef4444";
+    if (/^#[0-9a-f]{3,8}$/i.test(avatar)) return avatar;
+    if (/^data:image\/(png|jpeg|jpg|webp);base64,/i.test(avatar) && avatar.length <= 350000) return avatar;
+    if (/^https:\/\/[^\s]{1,500}$/i.test(avatar)) return avatar.slice(0, 600);
+    return "#ef4444";
+}
+
+function normalizeAccountId(value) {
+    return cleanText(value, 180).toLowerCase();
+}
 
 const DEFAULT_CHAT_DURATION = 240;
 const DEFAULT_VOTE_DURATION = 90;
@@ -47,7 +160,20 @@ const ELIMINATION_SUSPENSE_SECONDS = 5;
 const NEXT_PHASE_DELAY_SECONDS = 10;
 const RECONNECT_GRACE_MS = 30000;
 
-app.get("/google-client-config", (req, res) => {
+const httpHits = new Map();
+function httpRateLimit(limit = 40, windowMs = 60000) {
+    return (req, res, next) => {
+        const key = String(req.ip || req.socket.remoteAddress || "unknown");
+        const now = Date.now();
+        const recent = (httpHits.get(key) || []).filter(ts => now - ts < windowMs);
+        if (recent.length >= limit) return res.status(429).json({ error: "Too many requests" });
+        recent.push(now);
+        httpHits.set(key, recent);
+        next();
+    };
+}
+
+app.get("/google-client-config", httpRateLimit(30, 60000), (req, res) => {
     res.json({ clientId: process.env.GOOGLE_CLIENT_ID || "" });
 });
 
@@ -63,11 +189,28 @@ function generateRoomCode() {
 
 io.on("connection", socket => {
 
-    socket.on("registerAccount", data => { const p=ensureProfile(data?.accountId || data?.email, data?.email, data?.name); if(p){ savePlayerProfiles(); socket.emit("profileProgress", publicProgress(p)); } });
-    socket.on("getProgress", data => { const p=ensureProfile(data?.accountId || data?.email, data?.email); if(p) socket.emit("profileProgress", publicProgress(p)); });
+    socket.on("registerAccount", data => {
+        if (!allowSocketEvent(socket, "registerAccount")) return;
+        const id = normalizeAccountId(data?.accountId || data?.email);
+        const p=ensureProfile(id, data?.email, data?.name);
+        if(p){ savePlayerProfiles(); socket.data.accountId=id; socket.emit("profileProgress", publicProgress(p)); }
+    });
+    socket.on("getProgress", data => {
+        if (!allowSocketEvent(socket, "getProgress")) return;
+        const id = normalizeAccountId(data?.accountId || data?.email);
+        const p=ensureProfile(id, data?.email);
+        if(p) socket.emit("profileProgress", publicProgress(p));
+    });
 
     socket.on("createRoom", data => {
-        const { realName, nickName, avatar, playerKey, accountId, email } = data;
+        if (!allowSocketEvent(socket, "createRoom")) return socket.emit("errorMsg", "⏳ تم إيقاف الطلبات السريعة مؤقتاً. حاول بعد لحظات.");
+        const realName = cleanText(data?.realName, 20);
+        const nickName = cleanText(data?.nickName, 20);
+        const avatar = cleanAvatar(data?.avatar);
+        const playerKey = cleanText(data?.playerKey, 120);
+        const accountId = normalizeAccountId(data?.accountId);
+        const email = cleanText(data?.email, 180).toLowerCase();
+        if (!realName || !nickName || !playerKey) return socket.emit("errorMsg", "أكمل بيانات اللاعب أولاً.");
         const roomCode = generateRoomCode();
 
         rooms[roomCode] = {
@@ -116,7 +259,14 @@ io.on("connection", socket => {
     });
 
     socket.on("joinRoom", data => {
-        const { roomCode, realName, nickName, avatar, playerKey, accountId, email } = data;
+        if (!allowSocketEvent(socket, "joinRoom")) return socket.emit("errorMsg", "⏳ تم إيقاف الطلبات السريعة مؤقتاً. حاول بعد لحظات.");
+        const roomCode = cleanText(data?.roomCode, 4);
+        const realName = cleanText(data?.realName, 20);
+        const nickName = cleanText(data?.nickName, 20);
+        const avatar = cleanAvatar(data?.avatar);
+        const playerKey = cleanText(data?.playerKey, 120);
+        const accountId = normalizeAccountId(data?.accountId);
+        const email = cleanText(data?.email, 180).toLowerCase();
         const room = rooms[roomCode];
 
         if (!room) {
@@ -177,7 +327,9 @@ io.on("connection", socket => {
 
     // إعادة ربط اللاعب بعد تحديث الصفحة أثناء اللوبي.
     socket.on("reconnectRoom", data => {
-        const { roomCode, playerKey } = data || {};
+        if (!allowSocketEvent(socket, "reconnectRoom")) return socket.emit("reconnectFailed", "⏳ كثرة محاولات إعادة الاتصال. حاول بعد لحظات.");
+        const roomCode = cleanText(data?.roomCode, 4);
+        const playerKey = cleanText(data?.playerKey, 120);
         const room = rooms[roomCode];
 
         if (!room || room.status !== "LOBBY") {
@@ -220,7 +372,9 @@ io.on("connection", socket => {
 
     // خروج يدوي من اللوبي إلى الصفحة الرئيسية.
     socket.on("leaveRoom", data => {
-        const { roomCode, playerKey } = data || {};
+        if (!allowSocketEvent(socket, "leaveRoom")) return;
+        const roomCode = cleanText(data?.roomCode, 4);
+        const playerKey = cleanText(data?.playerKey, 120);
         const room = rooms[roomCode];
         if (!room || room.status !== "LOBBY") return;
 
@@ -251,7 +405,9 @@ io.on("connection", socket => {
     });
 
     socket.on("kickPlayer", data => {
-        const { roomCode, targetPlayerId } = data || {};
+        if (!allowSocketEvent(socket, "kickPlayer")) return;
+        const roomCode = cleanText(data?.roomCode, 4);
+        const targetPlayerId = cleanText(data?.targetPlayerId, 120);
         const room = rooms[roomCode];
 
         if (!room || room.status !== "LOBBY") return;
@@ -285,8 +441,8 @@ io.on("connection", socket => {
     });
 
     socket.on("startGame", data => {
-        const roomCode =
-            typeof data === "object" ? data.roomCode : data;
+        if (!allowSocketEvent(socket, "startGame")) return socket.emit("errorMsg", "⏳ كثرة الطلبات. حاول بعد لحظات.");
+        const roomCode = cleanText(typeof data === "object" ? data.roomCode : data, 4);
 
         const room = rooms[roomCode];
 
@@ -318,7 +474,9 @@ io.on("connection", socket => {
     });
 
     socket.on("sendMessage", data => {
-        const { roomCode, message } = data;
+        if (!allowSocketEvent(socket, "sendMessage")) return socket.emit("errorMsg", "⏳ تم إيقاف الرسائل السريعة مؤقتاً.");
+        const roomCode = cleanText(data?.roomCode, 4);
+        const message = cleanText(data?.message, 300);
         const room = rooms[roomCode];
 
         if (!room) return;
@@ -330,7 +488,8 @@ io.on("connection", socket => {
             player.isAlive &&
             room.phase === "CHAT" &&
             typeof message === "string" &&
-            message.trim()
+            message.length > 0 &&
+            message.length <= 300
         ) {
             io.to(roomCode).emit("newMessage", {
                 playerId: player.id,
@@ -343,7 +502,9 @@ io.on("connection", socket => {
     });
 
     socket.on("sendSpectatorMessage", data => {
-        const { roomCode, message } = data;
+        if (!allowSocketEvent(socket, "sendSpectatorMessage")) return socket.emit("errorMsg", "⏳ تم إيقاف الرسائل السريعة مؤقتاً.");
+        const roomCode = cleanText(data?.roomCode, 4);
+        const message = cleanText(data?.message, 300);
         const room = rooms[roomCode];
 
         if (!room) return;
@@ -371,7 +532,9 @@ io.on("connection", socket => {
     });
 
     socket.on("submitVotes", data => {
-        const { roomCode, guesses } = data;
+        if (!allowSocketEvent(socket, "submitVotes")) return socket.emit("errorMsg", "⏳ تم إيقاف إرسال التصويت المتكرر.");
+        const roomCode = cleanText(data?.roomCode, 4);
+        const guesses = (data?.guesses && typeof data.guesses === "object") ? data.guesses : {};
         const room = rooms[roomCode];
 
         if (!room || room.phase !== "VOTE") return;
@@ -380,7 +543,13 @@ io.on("connection", socket => {
 
         if (!player || !player.isAlive) return;
 
-        player.votes = guesses;
+        const safeGuesses = {};
+        for (const [nick, real] of Object.entries(guesses).slice(0, 8)) {
+            const safeNick = cleanText(nick, 20);
+            const safeReal = cleanText(real, 20);
+            if (safeNick && safeReal) safeGuesses[safeNick] = safeReal;
+        }
+        player.votes = safeGuesses;
         socket.emit("voteSubmitted");
         socket.emit("audioEvent", { name: "lock" });
 
@@ -395,7 +564,9 @@ io.on("connection", socket => {
     });
 
     socket.on("submitFinalGuess", data => {
-        const { roomCode, guessedRealName } = data;
+        if (!allowSocketEvent(socket, "submitFinalGuess")) return socket.emit("errorMsg", "⏳ تم إيقاف الإرسال المتكرر.");
+        const roomCode = cleanText(data?.roomCode, 4);
+        const guessedRealName = cleanText(data?.guessedRealName, 20);
         const room = rooms[roomCode];
 
         if (!room || room.status !== "FINAL") return;
@@ -464,16 +635,16 @@ io.on("connection", socket => {
             return;
         }
 
-        // بعد بدء اللعبة، السلوك القديم يبقى: اللاعب المنقطع يخرج من الغرفة.
-        room.players = room.players.filter(p => p.id !== socket.id);
-
-        if (room.players.length === 0) {
-            clearInterval(room.timer);
-            delete rooms[roomCode];
-            return;
-        }
-
-        broadcastLobby(roomCode);
+        // بعد بدء اللعبة لا نحذف اللاعب من سجل الجولة.
+        // نخليه موجوداً (connected=false) حتى تبقى هويته الحقيقية
+        // متاحة في قوائم التخمين حتى لو أغلق الموقع أو انقطع اتصاله.
+        player.connected = false;
+        player.disconnectedAt = Date.now();
+        // لا يستطيع اللاعب المنقطع التصويت أو تعطيل الجولة، لكن سجله وهويته يبقيان موجودين.
+        player.isAlive = false;
+        player.id = `offline:${player.playerKey}`;
+        player.disconnectTimer = null;
+        savePlayerProfiles();
     });
 });
 
@@ -486,12 +657,14 @@ function broadcastLobby(roomCode) {
         .sort(() => Math.random() - 0.5);
 
     io.to(roomCode).emit("lobbyUpdated", {
-        players: shuffledPlayers.map(p => ({
-            id: p.id,
-            realName: p.realName,
-            nickName: p.nickName,
-            avatar: p.avatar
-        })),
+        players: shuffledPlayers.map(p => {
+            const profile = progressForPlayer(p.accountId || p.email || p.playerKey);
+            return {
+                id: p.id,
+                realName: p.realName,
+                level: profile?.level || 1
+            };
+        }),
         playerCount: shuffledPlayers.length,
         hostId: room.host
     });
@@ -551,14 +724,20 @@ function startVotePhase(roomCode) {
 
     io.to(roomCode).emit("phaseChanged", {
         phase: "VOTE",
+        // من نصوت عليهم = الأحياء فقط.
         players: shuffledPlayers.map(p => ({
             nickName: p.nickName,
             realName: p.realName,
             avatar: p.avatar
         })),
         aliveNickNames: shuffledPlayers.map(p => p.nickName),
-        realNames: shuffledPlayers.map(p => p.realName),
-        avatars: shuffledPlayers.map(p => p.avatar)
+        // خيارات الاسم الحقيقي = جميع لاعبي الجولة حتى من خرج أو استبعد.
+        identityOptions: room.players.map(p => ({
+            realName: p.realName,
+            nickName: p.nickName
+        })),
+        realNames: room.players.map(p => p.realName),
+        avatars: room.players.map(p => p.avatar)
     });
 
     playSound(roomCode, "vote");
