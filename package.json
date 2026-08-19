@@ -1,13 +1,13 @@
 {
-  "name": "makhfi",
+  "name": "min-almukhfi",
   "version": "1.0.0",
-  "description": "مخفي — لعبة جماعية للتخمين وكشف الهويات",
+  "description": "مين المخفي؟ — لعبة جماعية عربية للتخمين وكشف الهويات",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-  "keywords": [],
+  "keywords": ["مين المخفي", "لعبة جماعية", "لعبة تخمين", "كشف الهوية", "تصويت", "لعبة عربية"],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
