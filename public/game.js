@@ -13,7 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     openBtn?.addEventListener('click', () => { if (currentRoom) openLobbyProfileEditor(); else modal?.classList.remove('hidden'); });
     closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
-    saveBtn?.addEventListener('click', () => { saveChatSettings(); if (currentRoom) saveLobbyProfileChanges(); modal?.classList.add('hidden'); });
+    saveBtn?.addEventListener('click', () => { saveChatSettings(); modal?.classList.add('hidden'); });
+
+    document.getElementById('closeLobbyProfileBtn')?.addEventListener('click', closeLobbyProfileEditor);
+    document.getElementById('saveLobbyProfileBtn')?.addEventListener('click', saveLobbyProfileChanges);
     openChallengesBtn?.addEventListener('click', () => {
         const profile = getGoogleProfile();
         if (!profile?.email && !profile?.sub) {
@@ -693,6 +696,9 @@ function usePinterestImage() {
     }
 
     closePinterestPicker();
+    if (!document.getElementById("lobbyProfileModal")?.classList.contains("hidden")) {
+        restoreLobbyAvatarVisual(currentAvatarData);
+    }
 }
 
 document.addEventListener("keydown", event => {
@@ -743,21 +749,74 @@ function updateMyPlayerTag() {
 }
 
 function openLobbyProfileEditor() {
-    const modal = document.getElementById("settingsModal");
-    const real = document.getElementById("realName");
-    const nick = document.getElementById("nickName");
-    if (!modal) return;
-    if (real) { real.value = myRealName; real.disabled = true; real.title = "الاسم الحقيقي لا يتغير من اللوبي"; }
-    if (nick) nick.value = myNickName;
-    restoreAvatarVisual(currentAvatarData);
+    const modal = document.getElementById("lobbyProfileModal");
+    const nick = document.getElementById("lobbyNickNameInput");
+    if (!modal || !currentRoom) return;
+    if (nick) nick.value = myNickName || "";
+    restoreLobbyAvatarVisual(currentAvatarData);
     modal.classList.remove("hidden");
-    showToast("✏️ عدّل الاسم المستعار والصورة ثم اضغط حفظ.", "info", 2600);
+}
+
+function closeLobbyProfileEditor() {
+    document.getElementById("lobbyProfileModal")?.classList.add("hidden");
+}
+
+function restoreLobbyAvatarVisual(data) {
+    const section = document.querySelector("#lobbyProfileModal .lobby-avatar-section");
+    const preview = document.getElementById("lobbyAvatarPreview");
+    if (!section) return;
+    section.querySelectorAll(".avatar-circle").forEach(el => el.classList.remove("selected"));
+    const preset = [...section.querySelectorAll(".avatar-circle")].find(el => {
+        const bg = (el.style.backgroundColor || "").toLowerCase();
+        return bg && bg === String(data || "").toLowerCase();
+    });
+    if (preset) preset.classList.add("selected");
+
+    if (preview) {
+        preview.innerHTML = "";
+        const el = getAvatarElement(data || "#3b3156");
+        el.classList.add("lobby-avatar-preview-image");
+        preview.appendChild(el);
+    }
+}
+
+function selectLobbyAvatar(element, data) {
+    const section = document.querySelector("#lobbyProfileModal .lobby-avatar-section");
+    if (section) section.querySelectorAll(".avatar-circle").forEach(el => el.classList.remove("selected"));
+    element?.classList.add("selected");
+    currentAvatarData = data;
+    restoreLobbyAvatarVisual(currentAvatarData);
+}
+
+function handleLobbyImageUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+        showToast("📷 الصورة كبيرة جداً. الحد الأقصى 5MB.", "warning");
+        event.target.value = "";
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement("canvas");
+            canvas.width = 100; canvas.height = 100;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, 100, 100);
+            currentAvatarData = canvas.toDataURL("image/jpeg", 0.7);
+            restoreLobbyAvatarVisual(currentAvatarData);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 function saveLobbyProfileChanges() {
     if (!currentRoom) return;
-    const nick = document.getElementById("nickName")?.value.trim();
-    if (!nick) return showError("اكتب اسماً مستعاراً أولاً.");
+    const nick = document.getElementById("lobbyNickNameInput")?.value.trim();
+    if (!nick) return showToast("اكتب اسماً مستعاراً أولاً.", "warning");
+    if (nick.length > 20) return showToast("الاسم المستعار طويل جداً.", "warning");
     socket.emit("updateLobbyProfile", {
         roomCode: currentRoom,
         nickName: nick,
@@ -946,9 +1005,12 @@ socket.on("lobbyUpdated", data => {
 socket.on("lobbyProfileUpdated", data => {
     myNickName = data?.nickName || myNickName;
     currentAvatarData = data?.avatar || currentAvatarData;
+    const mainNick = document.getElementById("nickName");
+    if (mainNick) mainNick.value = myNickName;
     saveProfile();
     saveLobbySession();
     updateMyPlayerTag();
+    closeLobbyProfileEditor();
     showToast("✅ تم تحديث الاسم المستعار والصورة.", "success", 2400);
 });
 
