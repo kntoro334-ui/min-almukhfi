@@ -656,6 +656,12 @@ input, select, textarea, button {
                 <button onclick="createRoom()">🏠 إنشاء غرفة جديدة</button>
             </div>
 
+            <hr>
+
+            <input id="roomCodeInput" placeholder="أدخل رمز الغرفة (4 أرقام)" maxlength="4">
+            <button onclick="joinRoom()" class="full-width">🚪 الانضمام للغرفة</button>
+            <div id="loginError" class="error"></div>
+
             <!-- شرح اللعبة في الصفحة الرئيسية -->
             <details class="lobby-guide home-guide" open>
                 <summary>📖 شرح اللعبة وطريقة اللعب</summary>
@@ -691,12 +697,6 @@ input, select, textarea, button {
                     </section>
                 </div>
             </details>
-
-            <hr>
-
-            <input id="roomCodeInput" placeholder="أدخل رمز الغرفة (4 أرقام)" maxlength="4">
-            <button onclick="joinRoom()" class="full-width">🚪 الانضمام للغرفة</button>
-            <div id="loginError" class="error"></div>
         </div>
     </section>
 
