@@ -3,6 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const path = require("path");
 const fs = require("fs");
+const { Pool } = require("pg");
 
 const app = express();
 const server = http.createServer(app);
@@ -35,22 +36,142 @@ const rooms = {};
 const DATA_DIR = path.join(__dirname, "data");
 const PLAYERS_FILE = path.join(DATA_DIR, "players.json");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// Production storage: Render Postgres via DATABASE_URL.
+// Local fallback: data/players.json so the game still runs during local development.
+const DATABASE_URL = process.env.DATABASE_URL || "";
+const db = DATABASE_URL ? new Pool({
+    connectionString: DATABASE_URL,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000,
+    ssl: { rejectUnauthorized: false }
+}) : null;
+
 let playerProfiles = {};
-try { playerProfiles = JSON.parse(fs.readFileSync(PLAYERS_FILE, "utf8")); } catch (_) { playerProfiles = {}; }
+let storageReady = false;
 let profileSaveTimer = null;
-function savePlayerProfilesNow(){
+
+function loadFileProfiles() {
+    try { return JSON.parse(fs.readFileSync(PLAYERS_FILE, "utf8")); }
+    catch (_) { return {}; }
+}
+
+async function initStorage() {
+    if (!db) {
+        playerProfiles = loadFileProfiles();
+        storageReady = true;
+        console.warn("⚠️ DATABASE_URL غير موجود؛ سيتم استخدام data/players.json محلياً.");
+        return;
+    }
+
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS player_profiles (
+            account_id TEXT PRIMARY KEY,
+            email TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL DEFAULT '',
+            level INTEGER NOT NULL DEFAULT 1,
+            xp INTEGER NOT NULL DEFAULT 0,
+            daily_key TEXT NOT NULL DEFAULT '',
+            weekly_key TEXT NOT NULL DEFAULT '',
+            daily JSONB NOT NULL DEFAULT '{}'::jsonb,
+            weekly JSONB NOT NULL DEFAULT '{}'::jsonb,
+            total_play_minutes INTEGER NOT NULL DEFAULT 0,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+    `);
+
+    const result = await db.query(`
+        SELECT account_id, email, name, level, xp, daily_key, weekly_key, daily, weekly, total_play_minutes
+        FROM player_profiles
+    `);
+
+    playerProfiles = {};
+    for (const row of result.rows) {
+        playerProfiles[row.account_id] = {
+            accountId: row.account_id,
+            email: row.email || '',
+            name: row.name || '',
+            level: Number(row.level || 1),
+            xp: Number(row.xp || 0),
+            dailyKey: row.daily_key || dayKey(),
+            weeklyKey: row.weekly_key || weekKey(),
+            daily: row.daily || {},
+            weekly: row.weekly || {},
+            totalPlayMinutes: Number(row.total_play_minutes || 0)
+        };
+    }
+
+    // One-time migration from the old JSON file when the DB is still empty.
+    if (result.rowCount === 0) {
+        const legacy = loadFileProfiles();
+        const entries = Object.values(legacy);
+        for (const p of entries) {
+            if (!p?.accountId) continue;
+            await upsertProfile(p);
+            playerProfiles[p.accountId] = p;
+        }
+        if (entries.length) console.log(`✅ تم ترحيل ${entries.length} لاعب من players.json إلى PostgreSQL.`);
+    }
+
+    storageReady = true;
+    console.log("✅ PostgreSQL storage connected.");
+}
+
+async function upsertProfile(p) {
+    if (!db || !p?.accountId) return;
+    await db.query(`
+        INSERT INTO player_profiles (account_id, email, name, level, xp, daily_key, weekly_key, daily, weekly, total_play_minutes, updated_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10,NOW())
+        ON CONFLICT (account_id) DO UPDATE SET
+            email=EXCLUDED.email,
+            name=EXCLUDED.name,
+            level=EXCLUDED.level,
+            xp=EXCLUDED.xp,
+            daily_key=EXCLUDED.daily_key,
+            weekly_key=EXCLUDED.weekly_key,
+            daily=EXCLUDED.daily,
+            weekly=EXCLUDED.weekly,
+            total_play_minutes=EXCLUDED.total_play_minutes,
+            updated_at=NOW()
+    `, [
+        p.accountId, p.email || '', p.name || '', Number(p.level || 1), Number(p.xp || 0),
+        p.dailyKey || dayKey(), p.weeklyKey || weekKey(), JSON.stringify(p.daily || {}), JSON.stringify(p.weekly || {}),
+        Number(p.totalPlayMinutes || 0)
+    ]);
+}
+
+async function savePlayerProfilesNow(){
+    if (db) {
+        if (!storageReady) return;
+        try {
+            for (const p of Object.values(playerProfiles)) await upsertProfile(p);
+        } catch (e) {
+            console.error("تعذر حفظ بيانات اللاعبين في PostgreSQL", e);
+        }
+        return;
+    }
     try {
         fs.writeFileSync(PLAYERS_FILE, JSON.stringify(playerProfiles, null, 2));
     } catch(e){
         console.error("تعذر حفظ بيانات اللاعبين", e);
     }
 }
+
 function savePlayerProfiles(){
     clearTimeout(profileSaveTimer);
-    profileSaveTimer = setTimeout(() => { profileSaveTimer = null; savePlayerProfilesNow(); }, 500);
+    profileSaveTimer = setTimeout(() => {
+        profileSaveTimer = null;
+        void savePlayerProfilesNow();
+    }, 500);
 }
-process.on("SIGINT", () => { savePlayerProfilesNow(); process.exit(0); });
-process.on("SIGTERM", () => { savePlayerProfilesNow(); process.exit(0); });
+
+async function shutdown(){
+    try { await savePlayerProfilesNow(); } catch (_) {}
+    if (db) { try { await db.end(); } catch (_) {} }
+}
+process.on("SIGINT", async () => { await shutdown(); process.exit(0); });
+process.on("SIGTERM", async () => { await shutdown(); process.exit(0); });
 const DAILY_CHALLENGES = [
   {id:"daily_time",title:"العب لمدة 30 دقيقة",description:"اجمع 30 دقيقة من وقت اللعب خلال اليوم.",target:30,reward:100},
   {id:"daily_rounds",title:"أكمل 3 جولات",description:"شارك في ثلاث جولات مكتملة حتى النهاية.",target:3,reward:150},
@@ -216,6 +337,7 @@ function generateRoomCode() {
 }
 
 io.on("connection", socket => {
+    if (!storageReady) { socket.disconnect(true); return; }
 
     socket.on("registerAccount", data => {
         if (!allowSocketEvent(socket, "registerAccount")) return;
@@ -1177,7 +1299,15 @@ function resetRoomToLobby(roomCode) {
 }
 
 const PORT = Number(process.env.PORT) || 3000;
-server.listen(PORT, '0.0.0.0', () => {
-    console.log("🎭 مخفي Server v4");
-    console.log("🌐 http://localhost:3000");
-});
+(async () => {
+    try {
+        await initStorage();
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log("🎭 مخفي Server v5");
+            console.log(`🌐 http://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error("❌ فشل تهيئة التخزين:", error);
+        process.exit(1);
+    }
+})();
