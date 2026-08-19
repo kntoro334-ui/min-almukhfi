@@ -3,12 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>🎭 مين المخفي؟ 🎭 | لعبة جماعية للتخمين</title>
-    <meta name="application-name" content="مين المخفي؟">
-    <meta name="keywords" content="مين المخفي, لعبة جماعية, لعبة تخمين, كشف الهوية, لعبة تصويت, لعبة محادثة, لعبة أصدقاء, لعبة عربية">
-    <meta name="description" content="مخفي — لعبة جماعية للتخمين وكشف الهويات بين الأصدقاء.">
-    <meta property="og:title" content="🎭 مين المخفي؟ 🎭 | لعبة جماعية للتخمين">
-    <meta property="og:description" content="🎭 مين المخفي؟ 🎭 لعبة جماعية عربية للتخمين وكشف الهويات والتصويت بين الأصدقاء.">
+    <title>🎭 مين المخفي؟ 🎭 | لعبة الهويات والتخمين</title>
+    <meta name="application-name" content="🎭 مين المخفي؟ 🎭">
+    <meta name="description" content="🎭 مين المخفي؟ 🎭 لعبة جماعية عربية للتخمين وكشف الهويات بين الأصدقاء. العب مع 4 إلى 8 لاعبين، تحدثوا، صوّتوا، وتوقعوا الهوية الحقيقية.">
+    <meta name="keywords" content="مين المخفي, لعبة مين المخفي, لعبة تخمين, لعبة هويات, لعبة جماعية, لعبة مع الاصدقاء, لعبة اونلاين, تخمين الهوية, لعبة عربية">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <link rel="canonical" href="https://secret-identity.onrender.com/">
+    <meta property="og:site_name" content="🎭 مين المخفي؟ 🎭">
+    <meta property="og:title" content="🎭 مين المخفي؟ 🎭 | لعبة الهويات والتخمين">
+    <meta property="og:description" content="🎭 مين المخفي؟ 🎭 لعبة جماعية عربية للتخمين وكشف الهويات بين الأصدقاء.">
+    <script type="application/ld+json">
+    {
+      "@context":"https://schema.org",
+      "@type":"WebSite",
+      "name":"🎭 مين المخفي؟ 🎭",
+      "alternateName":["مين المخفي؟","مخفي","لعبة مين المخفي"],
+      "url":"https://secret-identity.onrender.com/",
+      "inLanguage":"ar"
+    }
+    </script>
     <link rel="stylesheet" href="/style.css">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -481,17 +494,6 @@ input, select, textarea, button {
 }
 
 </style>
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-    <meta name="theme-color" content="#151515">
-    <script type="application/ld+json">
-    {
-      "@context":"https://schema.org",
-      "@type":"WebSite",
-      "name":"مين المخفي؟",
-      "alternateName":"Mين المخفي",
-      "url":"/"
-    }
-    </script>
 </head>
 <body>
 
@@ -581,6 +583,37 @@ input, select, textarea, button {
             <div class="avatar-modal-actions">
                 <button id="saveSettingsBtn" class="full-width">حفظ وتطبيق الإعدادات</button>
                 <button type="button" class="secondary-modal-btn full-width" onclick="resetChatSettings()">↩️ إرجاع وضوح المحادثة للوضع الطبيعي</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- تعديل الملف الشخصي من اللوبي: نافذة مستقلة عن الإعدادات -->
+    <div id="lobbyProfileModal" class="avatar-modal hidden">
+        <div class="avatar-modal-card lobby-profile-modal-card">
+            <button id="closeLobbyProfileBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
+            <h3>✏️ تعديل ملفك في اللوبي</h3>
+            <p class="avatar-modal-help">غيّر الاسم المستعار أو الصورة من هنا بدون الخروج من الغرفة.</p>
+
+            <label class="lobby-profile-field-label" for="lobbyNickNameInput">الاسم المستعار</label>
+            <input id="lobbyNickNameInput" maxlength="20" placeholder="اسمك المستعار">
+
+            <div class="avatar-section lobby-avatar-section">
+                <div class="avatar-circle selected" style="background-color:#ef4444" onclick="selectLobbyAvatar(this, '#ef4444')"></div>
+                <div class="avatar-circle" style="background-color:#3b82f6" onclick="selectLobbyAvatar(this, '#3b82f6')"></div>
+                <div class="avatar-circle" style="background-color:#10b981" onclick="selectLobbyAvatar(this, '#10b981')"></div>
+                <div class="avatar-circle" style="background-color:#f59e0b" onclick="selectLobbyAvatar(this, '#f59e0b')"></div>
+                <div class="avatar-circle" style="background-color:#8b5cf6" onclick="selectLobbyAvatar(this, '#8b5cf6')"></div>
+                <label class="custom-avatar-label" title="رفع صورة من جهازك">
+                    📷
+                    <input type="file" id="lobbyAvatarInput" accept="image/*" hidden onchange="handleLobbyImageUpload(event)">
+                </label>
+                <button type="button" class="pinterest-avatar-btn" onclick="openPinterestPicker()" title="اختيار صورة من Pinterest">📌</button>
+            </div>
+            <div id="lobbyAvatarPreview" class="lobby-avatar-preview"></div>
+
+            <div class="avatar-modal-actions">
+                <button type="button" class="secondary-modal-btn" onclick="closeLobbyProfileEditor()">إلغاء</button>
+                <button type="button" id="saveLobbyProfileBtn">💾 حفظ التعديلات</button>
             </div>
         </div>
     </div>
