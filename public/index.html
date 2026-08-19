@@ -506,6 +506,7 @@ input, select, textarea, button {
                 <div class="google-login-box">
                     <div id="googleSignInButton"></div>
                     <div id="googleLoginStatus" class="google-login-status"></div>
+                    <button id="googleLogoutBtn" type="button" class="google-logout-btn hidden" onclick="logoutGoogleAccount()">🚪 تسجيل الخروج</button>
                 </div>
             </div>
 
@@ -581,8 +582,13 @@ input, select, textarea, button {
     <div id="challengesModal" class="avatar-modal hidden">
         <div class="avatar-modal-card challenges-card">
             <button id="closeChallengesBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
-            <h3>🏆 التحديات</h3>
-            <p class="avatar-modal-help">أكمل التحديات للحصول على XP ورفع مستواك.</p>
+            <h3>🏆 التحديات ونظام التقدم</h3>
+            <p class="avatar-modal-help">التحديات لا تعمل إلا وأنت مسجل بحساب Google. التقدم والـXP والمستوى محفوظة على حسابك، وتتجدد التحديات اليومية والأسبوعية تلقائياً.</p>
+            <div class="challenge-explain">
+                <div><strong>📅 اليومية</strong><span>تتجدد كل يوم، وتركّز على اللعب والجولات والكشف والتخمين.</span></div>
+                <div><strong>🗓️ الأسبوعية</strong><span>أهداف أكبر تمنح XP أكثر وتساعدك على رفع المستوى أسرع.</span></div>
+                <div><strong>⭐ المستوى</strong><span>كل 1000 XP تنتقل للمستوى التالي، ويبقى تقدمك مع الحساب حتى لو غيرت الجهاز.</span></div>
+            </div>
             <div class="challenge-tabs">
                 <button id="dailyChallengesTab" class="challenge-tab active">📅 يومية</button>
                 <button id="weeklyChallengesTab" class="challenge-tab">🗓️ أسبوعية</button>
@@ -667,6 +673,41 @@ input, select, textarea, button {
 
             <h3>👥 اللاعبون المتواجدون (<span id="lobbyPlayerCount">0</span>/8)</h3>
             <div id="lobbyPlayers" class="players"></div>
+
+            <details class="lobby-guide" open>
+                <summary>📖 شرح اللعبة وطريقة اللعب</summary>
+                <div class="lobby-guide-content">
+                    <section>
+                        <h4>🎯 فكرة اللعبة</h4>
+                        <p>كل لاعب لديه <strong>اسم حقيقي سري</strong> و<strong>اسم مستعار ظاهر</strong>. هدفك أن تعرف أي اسم حقيقي يخص كل اسم مستعار، وتحافظ على هويتك دون أن ينكشف أمرُك.</p>
+                    </section>
+                    <section>
+                        <h4>🗣️ مرحلة المحادثة</h4>
+                        <p>يظهر لك جميع الموجودين في المحادثة مع صورهم وأسمائهم المستعارة. تحدث معهم وحاول استنتاج هوياتهم. اضغط على اسم أي لاعب لإضافة <strong>@منشن</strong> له مباشرة.</p>
+                    </section>
+                    <section>
+                        <h4>🗳️ مرحلة التصويت</h4>
+                        <p>يظهر لك كل لاعب حي مع صورته واسمه المستعار. اختر الاسم الحقيقي الذي تتوقع أنه يخصه. <strong>قائمة الأسماء الحقيقية تبقى محفوظة طوال الجولة</strong> حتى لو استُبعد لاعب أو خرج من الموقع.</p>
+                    </section>
+                    <section>
+                        <h4>🎯 التوقع النهائي</h4>
+                        <p>عندما يتبقى لاعبان، يتوقع كل واحد هوية الآخر. إذا نجح التوقع تفوز بالنقاط وتدخل النتيجة النهائية.</p>
+                    </section>
+                    <section>
+                        <h4>⭐ المستوى والتحديات</h4>
+                        <p>أكمل الجولات، العب لفترة أطول، خمن الهويات بشكل صحيح، وحافظ على عدم انكشافك لتحصل على XP. التقدم محفوظ في حساب Google.</p>
+                    </section>
+                    <section>
+                        <h4>📷 إضافة صورة من جهازك</h4>
+                        <p><strong>الكمبيوتر:</strong> يمكنك استخدام رابط صورة من Pinterest مباشرة من زر 📌 بدون رفع الصورة إلى الموقع، إذا كان الرابط مباشراً للصورة.</p>
+                        <p><strong>الجوال:</strong> افتح Pinterest، احفظ الصورة في جهازك، ثم ارجع للموقع واضغط زر 📷 الكاميرا/رفع الصورة واختر الصورة من الاستديو. الموقع يصغرها محلياً قبل إرسالها.</p>
+                    </section>
+                    <section>
+                        <h4>🔐 نصائح مهمة</h4>
+                        <p>لا تشارك اسمك الحقيقي أو بيانات حسابك مع الآخرين. استخدم اسماً مستعاراً مناسباً وتجنب إرسال معلومات شخصية في المحادثة.</p>
+                    </section>
+                </div>
+            </details>
 
             <button type="button" class="back-home-btn" onclick="leaveLobbyToHome()">🔙 الرجوع للرئيسية</button>
 
@@ -835,6 +876,8 @@ input, select, textarea, button {
     </section>
 
 </div>
+
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/game.js"></script>
