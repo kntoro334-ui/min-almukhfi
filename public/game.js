@@ -586,15 +586,20 @@ function openPinterestPicker() {
     const modal = document.getElementById("pinterestPicker");
     if (!modal) return;
 
+    // اجعل نافذة Pinterest أعلى من أي نافذة أخرى حتى تعمل من اللوبي أو الصفحة الرئيسية.
     modal.classList.remove("hidden");
+    modal.style.zIndex = "10050";
 
     const input = document.getElementById("pinterestImageUrl");
     const error = document.getElementById("pinterestError");
+    const preview = document.getElementById("pinterestPreview");
     if (error) error.textContent = "";
-
+    if (preview) preview.classList.add("hidden");
     if (input) {
+        input.value = "";
         input.focus();
-        input.addEventListener("input", previewPinterestImage, { once: false });
+        input.removeEventListener("input", previewPinterestImage);
+        input.addEventListener("input", previewPinterestImage);
     }
 }
 
