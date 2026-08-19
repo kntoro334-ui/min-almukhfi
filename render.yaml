@@ -1,8 +1,0 @@
-services:
-  - type: web
-    name: secret-identity
-    runtime: node
-    buildCommand: npm install
-    startCommand: npm start
-    healthCheckPath: /
-    autoDeploy: true
