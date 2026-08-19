@@ -391,6 +391,7 @@ let isSpectator = false;
 let resultCountdownInterval = null;
 let suspenseCountdownInterval = null;
 let currentAvatarData = "#ef4444";
+let chatMembers = [];
 
 const PROFILE_STORAGE_KEY = "si_playerProfile";
 const LOBBY_SESSION_KEY = "si_lobbySession";
@@ -786,6 +787,14 @@ socket.on("reconnectedToRoom", data => {
     showScreen("lobbyScreen");
 });
 
+socket.on("kickedFromRoom", data => {
+    clearLobbySession();
+    currentRoom = "";
+    isHost = false;
+    showScreen("loginScreen");
+    showError(data?.message || "⛔ تم طردك من اللوبي.");
+});
+
 socket.on("reconnectFailed", message => {
     clearLobbySession();
     currentRoom = "";
@@ -801,7 +810,7 @@ socket.on("lobbyUpdated", data => {
     const countEl = document.getElementById("lobbyPlayerCount");
     if (countEl) countEl.textContent = data.playerCount ?? (data.players || []).length;
 
-    isHost = data.hostId === socket.id || isHost;
+    isHost = data.hostId === socket.id;
     document.getElementById("hostControls").classList.toggle("hidden", !isHost);
     document.getElementById("hostSettings").classList.toggle("hidden", !isHost);
 
@@ -809,10 +818,29 @@ socket.on("lobbyUpdated", data => {
         const div = document.createElement("div");
         div.className = "player lobby-player-name-only";
 
-        const real = document.createElement("strong");
-        real.textContent = player.realName || "لا يوجد اسم";
-        div.appendChild(real);
+        const row = document.createElement("div");
+        row.className = "lobby-player-row";
 
+        const real = document.createElement("strong");
+        real.className = "lobby-player-real-name";
+        real.textContent = player.realName || "لا يوجد اسم";
+        row.appendChild(real);
+
+        if (isHost && player.id !== socket.id) {
+            const kick = document.createElement("button");
+            kick.type = "button";
+            kick.className = "lobby-kick-btn";
+            kick.textContent = "⛔ طرد";
+            kick.title = `طرد ${player.realName || player.nickName || "اللاعب"} من اللوبي`;
+            kick.onclick = () => {
+                if (confirm(`هل تريد طرد ${player.realName || player.nickName || "هذا اللاعب"} من اللوبي؟`)) {
+                    socket.emit("kickPlayer", { roomCode: currentRoom, targetPlayerId: player.id });
+                }
+            };
+            row.appendChild(kick);
+        }
+
+        div.appendChild(row);
         list.appendChild(div);
     });
 });
@@ -852,6 +880,85 @@ function startGame() {
     });
 }
 
+function renderChatMembers(members) {
+    const list = document.getElementById("chatMembersList");
+    const count = document.getElementById("chatMemberCount");
+    if (!list) return;
+
+    chatMembers = (members || []).map(p => ({
+        id: p.id || "",
+        nickName: p.nickName || p.nick || "",
+        avatar: p.avatar || ""
+    })).filter(p => p.nickName);
+
+    if (count) count.textContent = chatMembers.length;
+    list.innerHTML = "";
+
+    chatMembers.forEach(player => {
+        const item = document.createElement("div");
+        item.className = "chat-member";
+        item.title = `منشن @${player.nickName}`;
+        item.appendChild(getAvatarElement(player.avatar));
+
+        const name = document.createElement("span");
+        name.className = "chat-member-name";
+        name.textContent = player.nickName;
+        item.appendChild(name);
+
+        item.addEventListener("click", () => mentionNickname(player.nickName));
+        list.appendChild(item);
+    });
+}
+
+function mentionNickname(nickName) {
+    const input = document.getElementById("messageInput");
+    if (!input || !nickName) return;
+
+    const token = `@${nickName}`;
+    const current = input.value || "";
+    const separator = current && !/[\s]$/.test(current) ? " " : "";
+    const next = current + separator + token + " ";
+
+    input.value = next;
+    input.focus();
+    input.setSelectionRange(next.length, next.length);
+}
+
+function renderMessageText(message, members = chatMembers) {
+    const fragment = document.createDocumentFragment();
+    const text = String(message ?? "");
+    const names = [...new Set((members || []).map(p => p.nickName).filter(Boolean))]
+        .sort((a, b) => b.length - a.length);
+
+    if (!names.length) {
+        fragment.appendChild(document.createTextNode(text));
+        return fragment;
+    }
+
+    const escapedNames = names.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+    const regex = new RegExp(`@(${escapedNames.join("|")})(?!\\S)`, "g");
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            fragment.appendChild(document.createTextNode(text.slice(lastIndex, match.index)));
+        }
+
+        const span = document.createElement("span");
+        span.className = "mention";
+        span.textContent = match[0];
+        fragment.appendChild(span);
+        lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+        fragment.appendChild(document.createTextNode(text.slice(lastIndex)));
+    }
+
+    return fragment;
+}
+
 socket.on("phaseChanged", data => {
     if (isSpectator) {
         showScreen("spectatorScreen");
@@ -865,6 +972,7 @@ socket.on("phaseChanged", data => {
         document.getElementById("chatSection").classList.remove("hidden");
         document.getElementById("voteSection").classList.add("hidden");
         document.getElementById("finalSection").classList.add("hidden");
+        renderChatMembers(data.chatMembers || []);
     }
 
     if (data.phase === "VOTE") {
@@ -876,16 +984,12 @@ socket.on("phaseChanged", data => {
         submittedVote = false;
         document.getElementById("voteStatus").textContent = "";
 
-        buildVoteForm(
-            data.players ||
-            data.aliveNickNames.map((nick, i) => ({
-                nickName: nick,
-                realName: data.realNames?.[i] || "",
-                avatar: data.avatars?.[i] || ""
-            })),
-            data.allRealNames || data.realNames || []
-        );
+        buildVoteForm(data.players || data.aliveNickNames.map((nick, i) => ({ nickName: nick, realName: data.realNames?.[i] || "", avatar: data.avatars?.[i] || "" })));
     }
+});
+
+socket.on("chatMembersUpdated", data => {
+    renderChatMembers(data?.members || []);
 });
 
 socket.on("newMessage", data => {
@@ -894,7 +998,8 @@ socket.on("newMessage", data => {
         data.nickName,
         data.message,
         data.avatar,
-        data.playerId === socket.id
+        data.playerId === socket.id,
+        true
     );
 
     const realNameDisplay = data.realName ? ` (${data.realName})` : "";
@@ -922,7 +1027,7 @@ socket.on("spectatorMessage", data => {
     );
 });
 
-function addMessage(box, nick, message, avatarData, isMe = false) {
+function addMessage(box, nick, message, avatarData, isMe = false, enableMentions = false) {
     if (!box) return;
 
     const div = document.createElement("div");
@@ -937,12 +1042,23 @@ function addMessage(box, nick, message, avatarData, isMe = false) {
     strong.textContent = isMe ? "أنت: " : `${nick}: `;
 
     content.appendChild(strong);
-    content.appendChild(document.createTextNode(message));
+    if (enableMentions) {
+        content.appendChild(renderMessageText(message, chatMembers));
+    } else {
+        content.appendChild(document.createTextNode(message));
+    }
 
     div.appendChild(content);
+
+    if (enableMentions && nick) {
+        div.title = `اضغط لمنشن @${nick}`;
+        div.addEventListener("click", () => mentionNickname(nick));
+    }
+
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
 }
+
 
 function sendMessage() {
     const input = document.getElementById("messageInput");
@@ -980,7 +1096,7 @@ function spectatorEnter(event) {
     if (event.key === "Enter") sendSpectatorMessage();
 }
 
-function buildVoteForm(players, allRealNames = []) {
+function buildVoteForm(players) {
     const form = document.getElementById("voteForm");
     form.innerHTML = "";
 
@@ -990,12 +1106,10 @@ function buildVoteForm(players, allRealNames = []) {
         avatar: p.avatar || ""
     }));
 
-    // أسماء الهوية الحقيقية تبقى لجميع اللاعبين حتى بعد الاستبعاد.
-    // نستبعد اسم اللاعب نفسه فقط حتى لا يختار هويته لنفسه.
-    const availableReals = [...new Set(
-        (allRealNames.length ? allRealNames : normalizedPlayers.map(p => p.realName))
-            .filter(Boolean)
-    )].filter(real => real !== myRealName);
+    const availableReals = normalizedPlayers
+        .map(p => p.realName)
+        .filter(Boolean)
+        .filter(real => real !== myRealName);
 
     normalizedPlayers
         .filter(player => player.nickName && player.nickName !== myNickName)
