@@ -618,6 +618,38 @@ input, select, textarea, button {
         </div>
     </div>
 
+            <div id="pinterestPicker" class="avatar-modal hidden">
+                <div class="avatar-modal-card">
+                    <button type="button" class="avatar-modal-close" onclick="closePinterestPicker()" aria-label="إغلاق">×</button>
+                    <h3>📌 اختيار صورة من Pinterest</h3>
+                    <p class="avatar-modal-help">
+                        افتح Pinterest وابحث عن الصورة التي تريدها، ثم اضغط بزر الفأرة الأيمن على الصورة واختر
+                        <strong>نسخ عنوان الصورة</strong>، والصقه هنا.
+                    </p>
+
+                    <button type="button" class="pinterest-open-btn" onclick="openPinterest()">
+                        🔎 فتح Pinterest
+                    </button>
+
+                    <input id="pinterestImageUrl"
+                           class="pinterest-url-input"
+                           type="url"
+                           placeholder="ألصق رابط الصورة هنا..."
+                           autocomplete="off">
+
+                    <div id="pinterestPreview" class="pinterest-preview hidden">
+                        <img id="pinterestPreviewImage" alt="معاينة الصورة">
+                    </div>
+
+                    <div id="pinterestError" class="error"></div>
+
+                    <div class="avatar-modal-actions">
+                        <button type="button" class="secondary-modal-btn" onclick="closePinterestPicker()">إلغاء</button>
+                        <button type="button" onclick="usePinterestImage()">✅ استخدام الصورة</button>
+                    </div>
+                </div>
+            </div>
+
     <!-- XP BAR ثابت أسفل الواجهة -->
     <div id="bottomXpBar" class="bottom-xp-bar">
         <div class="xp-header-row">
@@ -666,37 +698,6 @@ input, select, textarea, button {
                 <button type="button" class="pinterest-avatar-btn" onclick="openPinterestPicker()" title="اختيار صورة من Pinterest">📌</button>
             </div>
 
-            <div id="pinterestPicker" class="avatar-modal hidden">
-                <div class="avatar-modal-card">
-                    <button type="button" class="avatar-modal-close" onclick="closePinterestPicker()" aria-label="إغلاق">×</button>
-                    <h3>📌 اختيار صورة من Pinterest</h3>
-                    <p class="avatar-modal-help">
-                        افتح Pinterest وابحث عن الصورة التي تريدها، ثم اضغط بزر الفأرة الأيمن على الصورة واختر
-                        <strong>نسخ عنوان الصورة</strong>، والصقه هنا.
-                    </p>
-
-                    <button type="button" class="pinterest-open-btn" onclick="openPinterest()">
-                        🔎 فتح Pinterest
-                    </button>
-
-                    <input id="pinterestImageUrl"
-                           class="pinterest-url-input"
-                           type="url"
-                           placeholder="ألصق رابط الصورة هنا..."
-                           autocomplete="off">
-
-                    <div id="pinterestPreview" class="pinterest-preview hidden">
-                        <img id="pinterestPreviewImage" alt="معاينة الصورة">
-                    </div>
-
-                    <div id="pinterestError" class="error"></div>
-
-                    <div class="avatar-modal-actions">
-                        <button type="button" class="secondary-modal-btn" onclick="closePinterestPicker()">إلغاء</button>
-                        <button type="button" onclick="usePinterestImage()">✅ استخدام الصورة</button>
-                    </div>
-                </div>
-            </div>
 
             <input id="realName" placeholder="اسمك الحقيقي 🔒" maxlength="20">
             <input id="nickName" placeholder="اسمك المستعار 👤" maxlength="20">
