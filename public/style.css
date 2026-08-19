@@ -1231,3 +1231,13 @@ body{padding-bottom:75px}.settings-section{--settings-scale:1}.settings-control-
 .lobby-subtitle{font-size:12px;margin:4px 0 10px}
 .lobby-leader-badge{display:inline-flex;align-items:center;gap:4px;margin-inline-start:8px;padding:4px 8px;border-radius:999px;border:1px solid var(--border-color);background:color-mix(in srgb,var(--accent-color) 15%,transparent);color:var(--text-highlight);font-size:11px;font-weight:900}
 @media(max-width:600px){.lobby-actions-row{grid-template-columns:1fr}}
+
+
+/* Dedicated lobby profile editor */
+.lobby-profile-modal-card{width:min(460px,100%)}
+.lobby-profile-field-label{display:block;text-align:right;margin:4px 0 7px;color:var(--text-highlight);font-weight:800}
+.lobby-profile-modal-card #lobbyNickNameInput{margin-bottom:14px}
+.lobby-avatar-section{justify-content:center;margin:10px 0 12px}
+.lobby-avatar-section .avatar-circle,.lobby-avatar-section .custom-avatar-label{width:54px;height:54px}
+.lobby-avatar-preview{display:flex;justify-content:center;min-height:94px;margin:6px 0 14px}
+.lobby-avatar-preview-image{width:88px!important;height:88px!important;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--accent-color);box-shadow:0 0 24px color-mix(in srgb,var(--accent-color) 30%,transparent)}
