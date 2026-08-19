@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>مخفي 🎭 | لعبة الهويات</title>
+    <meta name="application-name" content="مخفي">
+    <meta name="description" content="مخفي — لعبة جماعية للتخمين وكشف الهويات بين الأصدقاء.">
+    <meta property="og:title" content="مخفي 🎭 | لعبة الهويات">
+    <meta property="og:description" content="لعبة جماعية للتخمين وكشف الهويات. ادخل والعب مع أصدقائك.">
+    <link rel="stylesheet" href="/style.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+
+/* ================= MOBILE OPTIMIZATION ================= */
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+button, input, select {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+input, select, textarea, button {
+    font-family: inherit;
+}
+
+@media (max-width: 600px) {
+    body {
+        min-height: 100dvh;
+        padding: 0;
+        overflow-x: hidden;
+    }
+
+    .container {
+        width: 100%;
+        max-width: 100%;
+        padding: 12px 10px 24px;
+    }
+
+    .screen.active {
+        min-height: calc(100dvh - 36px);
+    }
+
+    .card {
+        width: 100%;
+        padding: 18px 13px;
+        border-radius: 18px;
+    }
+
+    h1 {
+        font-size: clamp(28px, 9vw, 36px);
+        line-height: 1.15;
+        margin-top: 6px;
+    }
+
+    h2 {
+        font-size: 22px;
+    }
+
+    h3 {
+        font-size: 17px;
+    }
+
+    .subtitle {
+        font-size: 13px;
+        line-height: 1.6;
+        margin-bottom: 18px;
+    }
+
+    input, select {
+        min-height: 50px;
+        padding: 13px 14px;
+        font-size: 16px; /* prevents iOS Safari auto-zoom */
+        border-radius: 12px;
+    }
+
+    button {
+        min-height: 50px;
+        padding: 13px 16px;
+        font-size: 16px;
+    }
+
+    .buttons {
+        gap: 10px;
+    }
+
+    .theme-selector {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 7px;
+        margin-bottom: 10px;
+    }
+
+    .theme-btn {
+        min-height: 42px;
+        padding: 8px 6px;
+        font-size: 12px;
+    }
+
+    .avatar-section {
+        flex-wrap: wrap;
+        gap: 10px;
+        margin: 15px 0;
+    }
+
+    .avatar-circle,
+    .custom-avatar-label {
+        width: 50px;
+        height: 50px;
+    }
+
+    .room-code {
+        font-size: clamp(30px, 11vw, 40px);
+        letter-spacing: 6px;
+        margin: 8px 0;
+    }
+
+    .players {
+        max-height: 34vh;
+        padding-right: 2px;
+    }
+
+    .player, .vote-item {
+        min-height: 56px;
+        padding: 10px 12px;
+        gap: 10px;
+    }
+
+    .vote-item {
+        flex-wrap: wrap;
+    }
+
+    .vote-item strong {
+        min-width: 0 !important;
+        width: 100%;
+        font-size: 15px;
+    }
+
+    .vote-item select {
+        width: 100%;
+        margin: 0;
+    }
+
+    .timer {
+        font-size: clamp(38px, 13vw, 48px);
+        line-height: 1.1;
+        margin: 6px 0;
+    }
+
+    .phase {
+        font-size: 17px;
+        line-height: 1.5;
+        margin: 8px 0 15px;
+    }
+
+    .player-tag {
+        font-size: 13px;
+        padding: 8px 6px;
+        margin-bottom: 8px;
+    }
+
+    .chat-members-section {
+        margin: 10px 0 12px;
+    }
+
+    .chat-members-title {
+        margin: 0 0 8px;
+        font-size: 15px;
+    }
+
+    .chat-members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        max-height: 210px;
+        overflow-y: auto;
+        padding: 8px;
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 12px;
+        background: rgba(0,0,0,.12);
+    }
+
+    .chat-member {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 10px;
+        background: rgba(255,255,255,.035);
+        cursor: pointer;
+        transition: transform .15s ease, background .15s ease, border-color .15s ease;
+        text-align: right;
+    }
+
+    .chat-member:hover {
+        transform: translateY(-1px);
+        background: rgba(255,255,255,.07);
+        border-color: rgba(255,255,255,.14);
+    }
+
+    .chat-member .mini-avatar {
+        flex: 0 0 auto;
+    }
+
+    .chat-member-name {
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+
+    .mention {
+        color: #60a5fa;
+        font-weight: 800;
+        background: rgba(96,165,250,.12);
+        padding: 1px 4px;
+        border-radius: 5px;
+    }
+
+    .message {
+        cursor: pointer;
+    }
+
+    .message:hover {
+        background: rgba(255,255,255,.035);
+    }
+
+    .lobby-player-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+    }
+
+    .lobby-kick-btn {
+        min-height: 38px;
+        padding: 7px 11px;
+        margin: 0;
+        font-size: 13px;
+        width: auto;
+        flex: 0 0 auto;
+    }
+
+    .lobby-player-real-name {
+        overflow-wrap: anywhere;
+    }
+
+    .chat-box {
+        height: min(45vh, 360px);
+        padding: 10px;
+        border-radius: 12px;
+    }
+
+    .message {
+        padding: 10px;
+        gap: 9px;
+        margin-bottom: 8px;
+        align-items: flex-start;
+    }
+
+    .message-content {
+        font-size: 14px;
+        line-height: 1.55;
+    }
+
+    .mini-avatar {
+        width: 34px;
+        height: 34px;
+    }
+
+    .chat-input {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .chat-input input {
+        min-height: 52px;
+    }
+
+    .chat-input button {
+        width: 100%;
+    }
+
+    .notice {
+        padding: 12px;
+        font-size: 13px;
+        line-height: 1.7;
+        margin: 12px 0;
+    }
+
+    .eliminated-name {
+        font-size: clamp(30px, 10vw, 40px);
+        word-break: break-word;
+        line-height: 1.25;
+    }
+
+    .spectator-title {
+        font-size: 24px;
+    }
+
+    .winner-banner {
+        padding: 15px 10px;
+        margin-bottom: 16px;
+    }
+
+    .winner-banner h2 {
+        font-size: 22px;
+    }
+
+    .winner-names {
+        font-size: 19px;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    .rankings-list {
+        max-height: 50vh;
+        padding-right: 2px;
+    }
+
+    .rank-item {
+        padding: 10px 11px;
+        gap: 8px;
+    }
+
+    .rank-info {
+        min-width: 0;
+        gap: 9px;
+    }
+
+    .rank-info > div:last-child {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .rank-badge {
+        width: 30px;
+        height: 30px;
+        min-width: 30px;
+        font-size: 12px;
+    }
+
+    .rank-item > div:last-child {
+        white-space: nowrap;
+        font-size: 13px;
+    }
+
+    .settings-box {
+        padding: 13px;
+        margin: 12px 0;
+    }
+
+    .settings-box label {
+        margin-top: 8px;
+        font-size: 13px;
+    }
+
+    #finalSelect {
+        min-height: 52px;
+    }
+
+    #finalOpponent {
+        overflow-wrap: anywhere;
+    }
+}
+
+@media (max-width: 380px) {
+    .container {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+    .card {
+        padding: 15px 10px;
+    }
+
+    .theme-selector {
+        gap: 5px;
+    }
+
+    .avatar-circle,
+    .custom-avatar-label {
+        width: 46px;
+        height: 46px;
+    }
+
+    .room-code {
+        letter-spacing: 4px;
+    }
+
+    .message-content {
+        font-size: 13px;
+    }
+}
+
+
+.chat-members-section {
+    margin: 10px 0 12px;
+}
+
+.chat-members-title {
+    margin: 0 0 8px;
+    font-size: 16px;
+}
+
+.chat-members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    background: rgba(0,0,0,.12);
+}
+
+.chat-member {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 10px;
+    background: rgba(255,255,255,.035);
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    text-align: right;
+}
+
+.chat-member:hover {
+    transform: translateY(-1px);
+    background: rgba(255,255,255,.07);
+    border-color: rgba(255,255,255,.14);
+}
+
+.chat-member .mini-avatar { flex: 0 0 auto; }
+.chat-member-name { font-weight: 700; overflow-wrap: anywhere; }
+
+.mention {
+    color: #60a5fa;
+    font-weight: 800;
+    background: rgba(96,165,250,.12);
+    padding: 1px 4px;
+    border-radius: 5px;
+}
+
+.message { cursor: pointer; }
+.message:hover { background: rgba(255,255,255,.035); }
+
+.lobby-player-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+.lobby-kick-btn {
+    min-height: 38px;
+    padding: 7px 11px;
+    margin: 0;
+    font-size: 13px;
+    width: auto;
+    flex: 0 0 auto;
+}
+
+.lobby-player-real-name { overflow-wrap: anywhere; }
+
+#chatBox, #spectatorChat, #deadChat, #rankingsList, #voteForm,
+#finalOpponent, .winner-names {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- أزرار النظام الجديد -->
+    <div class="top-action-row">
+        <button id="openSettingsBtn" class="settings-trigger-btn">⚙️ الإعدادات</button>
+        <button id="openChallengesBtn" class="challenges-trigger-btn">🏆 التحديات</button>
+    </div>
+
+    <!-- نافذة الإعدادات المتقدمة (Modal) -->
+    <div id="settingsModal" class="avatar-modal hidden">
+        <div class="avatar-modal-card">
+            <button id="closeSettingsBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
+            <h3>⚙️ لوحة الإعدادات والتحكم</h3>
+            <p class="avatar-modal-help">خصص أطوال الشاشة، الثيمات، وحساب التسجيل الخاص بك من مكان واحد.</p>
+            
+            <!-- قسم حساب المستخدم والتسجيل -->
+            <div class="settings-section">
+                <h4>👤 حساب المستخدم والتسجيل</h4>
+                <div class="player-profile-card" style="margin: 10px 0; text-align: right;">
+                    <div class="profile-header">
+                        <h3 style="margin:0; font-size:15px;">حسابك</h3>
+                        <span class="season-badge" style="font-size:12px;">XP محفوظ بالحساب</span>
+                    </div>
+                </div>
+                <div class="google-login-box">
+                    <div id="googleSignInButton"></div>
+                    <div id="googleLoginStatus" class="google-login-status"></div>
+                    <button id="googleLogoutBtn" type="button" class="google-logout-btn hidden" onclick="logoutGoogleAccount()">🚪 تسجيل الخروج</button>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- قسم ثيمات الموقع -->
+            <div class="settings-section">
+                <h4>🎨 ثيمات الموقع</h4>
+                <div class="theme-selector">
+                    <button class="theme-btn" onclick="setTheme('')">نجمي 🔮</button>
+                    <button class="theme-btn" onclick="setTheme('neon')">نيون 🌿</button>
+                    <button class="theme-btn" onclick="setTheme('blue')">أزرق 🌊</button>
+                    <button class="theme-btn" onclick="setTheme('red')">أحمر 🔥</button>
+                    <button class="theme-btn" onclick="setTheme('cyan')">سماوي 💎</button>
+                    <button class="theme-btn" onclick="setTheme('pink')">وردي 🌸</button>
+                    <button class="theme-btn" onclick="setTheme('orange')">برتقالي 🟠</button>
+                    <button class="theme-btn" onclick="setTheme('gold')">ذهبي 👑</button>
+                    <button class="theme-btn" onclick="setTheme('matrix')">ماتريكس 🟢</button>
+                    <button class="theme-btn" onclick="setTheme('dark')">داكن 🌑</button>
+                </div>
+            </div>
+
+            <hr>
+
+            <!-- قسم تحسين وضوح المحادثة -->
+            <div class="settings-section chat-settings-section">
+                <h4>👁️ وضوح المحادثة</h4>
+                <p class="settings-help">كبّر النص والصور والمساحة حتى تكون المحادثة أوضح وأسهل للقراءة.</p>
+
+                <div class="settings-control-group">
+                    <label for="chatTextScaleRange">حجم نص المحادثة: <span id="chatTextScaleVal">100%</span></label>
+                    <input type="range" id="chatTextScaleRange" min="80" max="180" step="5" value="100">
+                </div>
+
+                <div class="settings-control-group">
+                    <label for="chatMessageScaleRange">حجم بطاقات الرسائل: <span id="chatMessageScaleVal">100%</span></label>
+                    <input type="range" id="chatMessageScaleRange" min="90" max="150" step="5" value="100">
+                </div>
+
+                <div class="settings-control-group">
+                    <label for="chatWidthRange">عرض المحادثة: <span id="chatWidthVal">100%</span></label>
+                    <input type="range" id="chatWidthRange" min="80" max="100" step="5" value="100">
+                </div>
+
+                <div class="settings-control-group">
+                    <label for="chatHeightRange">ارتفاع المحادثة: <span id="chatHeightVal">100%</span></label>
+                    <input type="range" id="chatHeightRange" min="70" max="180" step="5" value="100">
+                </div>
+
+                <div class="settings-control-group">
+                    <label for="chatAvatarScaleRange">حجم صور اللاعبين: <span id="chatAvatarScaleVal">100%</span></label>
+                    <input type="range" id="chatAvatarScaleRange" min="80" max="160" step="5" value="100">
+                </div>
+            </div>
+
+            <div class="avatar-modal-actions">
+                <button id="saveSettingsBtn" class="full-width">حفظ وتطبيق الإعدادات</button>
+                <button type="button" class="secondary-modal-btn full-width" onclick="resetChatSettings()">↩️ إرجاع وضوح المحادثة للوضع الطبيعي</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- XP BAR ثابت أسفل الواجهة -->
+    <div id="bottomXpBar" class="bottom-xp-bar">
+        <div class="xp-header-row">
+            <strong>⭐ المستوى <span id="current-level">1</span></strong>
+            <span><span id="current-xp">0</span> / <span id="next-level-xp">100</span> XP</span>
+        </div>
+        <div class="xp-track"><div class="xp-fill" id="xp-bar"></div></div>
+    </div>
+
+    <!-- نافذة التحديات -->
+    <div id="challengesModal" class="avatar-modal hidden">
+        <div class="avatar-modal-card challenges-card">
+            <button id="closeChallengesBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
+            <h3>🏆 التحديات ونظام التقدم</h3>
+            <p class="avatar-modal-help">التحديات لا تعمل إلا وأنت مسجل بحساب Google. التقدم والـXP والمستوى محفوظة على حسابك، وتتجدد التحديات اليومية والأسبوعية تلقائياً.</p>
+            <div class="challenge-explain">
+                <div><strong>📅 اليومية</strong><span>تتجدد كل يوم، وتركّز على اللعب والجولات والكشف والتخمين.</span></div>
+                <div><strong>🗓️ الأسبوعية</strong><span>أهداف أكبر تمنح XP أكثر وتساعدك على رفع المستوى أسرع.</span></div>
+                <div><strong>⭐ المستوى</strong><span>المستوى 1 يحتاج 100 XP، ويزيد المطلوب 100 XP كل مستوى حتى يصل 800 XP، وبعدها تحتاج 800 XP لكل مستوى. يبقى تقدمك محفوظاً مع الحساب.</span></div>
+            </div>
+            <div class="challenge-tabs">
+                <button id="dailyChallengesTab" class="challenge-tab active">📅 يومية</button>
+                <button id="weeklyChallengesTab" class="challenge-tab">🗓️ أسبوعية</button>
+            </div>
+            <div id="dailyChallengesList" class="challenges-list"></div>
+            <div id="weeklyChallengesList" class="challenges-list hidden"></div>
+        </div>
+    </div>
+
+    <!-- LOGIN -->
+    <section id="loginScreen" class="screen active">
+        <div class="card">
+            <h1>🎭 مخفي</h1>
+            <p class="subtitle">اكشف هويات الآخرين واحمِ هويتك الخفية</p>
+
+            <div class="avatar-section">
+                <div class="avatar-circle selected" style="background-color:#ef4444" onclick="selectAvatar(this, '#ef4444')"></div>
+                <div class="avatar-circle" style="background-color:#3b82f6" onclick="selectAvatar(this, '#3b82f6')"></div>
+                <div class="avatar-circle" style="background-color:#10b981" onclick="selectAvatar(this, '#10b981')"></div>
+                <div class="avatar-circle" style="background-color:#f59e0b" onclick="selectAvatar(this, '#f59e0b')"></div>
+                <div class="avatar-circle" style="background-color:#8b5cf6" onclick="selectAvatar(this, '#8b5cf6')"></div>
+                <label class="custom-avatar-label" title="رفع صورة من جهازك">
+                    📷
+                    <input type="file" id="customAvatarInput" accept="image/*" hidden onchange="handleImageUpload(event)">
+                </label>
+                <button type="button" class="pinterest-avatar-btn" onclick="openPinterestPicker()" title="اختيار صورة من Pinterest">📌</button>
+            </div>
+
+            <div id="pinterestPicker" class="avatar-modal hidden">
+                <div class="avatar-modal-card">
+                    <button type="button" class="avatar-modal-close" onclick="closePinterestPicker()" aria-label="إغلاق">×</button>
+                    <h3>📌 اختيار صورة من Pinterest</h3>
+                    <p class="avatar-modal-help">
+                        افتح Pinterest وابحث عن الصورة التي تريدها، ثم اضغط بزر الفأرة الأيمن على الصورة واختر
+                        <strong>نسخ عنوان الصورة</strong>، والصقه هنا.
+                    </p>
+
+                    <button type="button" class="pinterest-open-btn" onclick="openPinterest()">
+                        🔎 فتح Pinterest
+                    </button>
+
+                    <input id="pinterestImageUrl"
+                           class="pinterest-url-input"
+                           type="url"
+                           placeholder="ألصق رابط الصورة هنا..."
+                           autocomplete="off">
+
+                    <div id="pinterestPreview" class="pinterest-preview hidden">
+                        <img id="pinterestPreviewImage" alt="معاينة الصورة">
+                    </div>
+
+                    <div id="pinterestError" class="error"></div>
+
+                    <div class="avatar-modal-actions">
+                        <button type="button" class="secondary-modal-btn" onclick="closePinterestPicker()">إلغاء</button>
+                        <button type="button" onclick="usePinterestImage()">✅ استخدام الصورة</button>
+                    </div>
+                </div>
+            </div>
+
+            <input id="realName" placeholder="اسمك الحقيقي 🔒" maxlength="20">
+            <input id="nickName" placeholder="اسمك المستعار 👤" maxlength="20">
+
+            <div class="buttons">
+                <button onclick="createRoom()">🏠 إنشاء غرفة جديدة</button>
+            </div>
+
+            <hr>
+
+            <input id="roomCodeInput" placeholder="أدخل رمز الغرفة (4 أرقام)" maxlength="4">
+            <button onclick="joinRoom()" class="full-width">🚪 الانضمام للغرفة</button>
+            <div id="loginError" class="error"></div>
+
+            <!-- شرح اللعبة في الصفحة الرئيسية -->
+            <details class="lobby-guide home-guide" open>
+                <summary>📖 شرح اللعبة وطريقة اللعب</summary>
+                <div class="lobby-guide-content">
+                    <section>
+                        <h4>🎯 فكرة اللعبة</h4>
+                        <p>كل لاعب لديه <strong>اسم حقيقي سري</strong> و<strong>اسم مستعار ظاهر</strong>. هدفك أن تعرف أي اسم حقيقي يخص كل اسم مستعار، وتحافظ على هويتك دون أن ينكشف أمرُك.</p>
+                    </section>
+                    <section>
+                        <h4>🗣️ مرحلة المحادثة</h4>
+                        <p>يظهر لك جميع الموجودين في المحادثة مع صورهم وأسمائهم المستعارة. تحدث معهم وحاول استنتاج هوياتهم. اضغط على اسم أي لاعب لإضافة <strong>@منشن</strong> له مباشرة.</p>
+                    </section>
+                    <section>
+                        <h4>🗳️ مرحلة التصويت</h4>
+                        <p>يظهر لك كل لاعب حي مع صورته واسمه المستعار. اختر الاسم الحقيقي الذي تتوقع أنه يخصه. <strong>قائمة الأسماء الحقيقية تبقى محفوظة طوال الجولة</strong> حتى لو استُبعد لاعب أو خرج من الموقع.</p>
+                    </section>
+                    <section>
+                        <h4>🎯 التوقع النهائي</h4>
+                        <p>عندما يتبقى لاعبان، يتوقع كل واحد هوية الآخر. إذا نجح التوقع تفوز بالنقاط وتدخل النتيجة النهائية.</p>
+                    </section>
+                    <section>
+                        <h4>⭐ المستوى والتحديات</h4>
+                        <p>أكمل الجولات، العب لفترة أطول، خمن الهويات بشكل صحيح، وحافظ على عدم انكشافك لتحصل على XP. التقدم محفوظ في حساب Google.</p>
+                    </section>
+                    <section>
+                        <h4>📷 إضافة صورة من جهازك</h4>
+                        <p><strong>الكمبيوتر:</strong> يمكنك استخدام رابط صورة من Pinterest مباشرة من زر 📌 بدون رفع الصورة إلى الموقع، إذا كان الرابط مباشراً للصورة.</p>
+                        <p><strong>الجوال:</strong> افتح Pinterest، احفظ الصورة في جهازك، ثم ارجع للموقع واضغط زر 📷 الكاميرا/رفع الصورة واختر الصورة من الاستديو. الموقع يصغرها محلياً قبل إرسالها.</p>
+                    </section>
+                    <section>
+                        <h4>🔐 نصائح مهمة</h4>
+                        <p>لا تشارك اسمك الحقيقي أو بيانات حسابك مع الآخرين. استخدم اسماً مستعاراً مناسباً وتجنب إرسال معلومات شخصية في المحادثة.</p>
+                    </section>
+                </div>
+            </details>
+        </div>
+    </section>
+
+    <!-- LOBBY -->
+    <section id="lobbyScreen" class="screen">
+        <div class="card">
+            <h2>🏠 غرفة الانتظار</h2>
+            <div id="roomCodeDisplay" class="room-code">----</div>
+            <p class="subtitle">شارك الرمز مع أصدقائك لبدء التحدي<br>👥 من 4 إلى 8 لاعبين</p>
+
+            <h3>👥 اللاعبون المتواجدون (<span id="lobbyPlayerCount">0</span>/8)</h3>
+            <p class="subtitle lobby-subtitle">👑 صاحب الغرفة يظهر بجانب اسمه</p>
+            <div id="lobbyPlayers" class="players"></div>
+
+
+            <div class="lobby-actions-row">
+                <button type="button" class="lobby-profile-edit-btn" onclick="openLobbyProfileEditor()">✏️ تعديل الاسم والصورة</button>
+                <button type="button" class="back-home-btn" onclick="leaveLobbyToHome()">🔙 الرجوع للرئيسية</button>
+            </div>
+
+            <div id="hostSettings" class="settings-box hidden">
+                <h3>⚙️ إعدادات اللعبة</h3>
+
+                <label>⏱️ مدة المحادثة:</label>
+                <select id="chatDurationSelect">
+                    <option value="30">30 ثانية</option>
+                    <option value="60">دقيقة واحدة</option>
+                    <option value="90">دقيقة ونصف</option>
+                    <option value="120">دقيقتان</option>
+                    <option value="180">3 دقائق</option>
+                    <option value="240" selected>4 دقائق</option>
+                    <option value="300">5 دقائق</option>
+                    <option value="420">7 دقائق</option>
+                    <option value="600">10 دقائق</option>
+                    <option value="900">15 دقيقة</option>
+                    <option value="1200">20 دقيقة</option>
+                    <option value="1800">30 دقيقة</option>
+                </select>
+
+                <label>🗳️ مدة التصويت:</label>
+                <select id="voteDurationSelect">
+                    <option value="15">15 ثانية</option>
+                    <option value="30">30 ثانية</option>
+                    <option value="45">45 ثانية</option>
+                    <option value="60">دقيقة واحدة</option>
+                    <option value="90" selected>دقيقة ونصف</option>
+                    <option value="120">دقيقتان</option>
+                    <option value="180">3 دقائق</option>
+                    <option value="300">5 دقائق</option>
+                </select>
+            </div>
+
+            <div id="hostControls" class="buttons hidden">
+                <button onclick="startGame()">🔥 بدء المعركة</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- GAME -->
+    <section id="gameScreen" class="screen">
+        <div class="card">
+            <div id="myPlayerTag" class="player-tag"></div>
+            <div id="timer" class="timer">00:00</div>
+            <div id="phaseTitle" class="phase">🗣️ مرحلة المحادثة</div>
+
+            <div id="chatSection">
+                <div id="chatMembersSection" class="chat-members-section">
+                    <h3 class="chat-members-title">👥 الموجودون في المحادثة (<span id="chatMemberCount">0</span>)</h3>
+                    <div id="chatMembersList" class="chat-members-list"></div>
+                </div>
+                <div id="chatBox" class="chat-box"></div>
+                <div class="chat-input">
+                    <input id="messageInput" placeholder="اكتب رسالتك هنا..." maxlength="300" onkeydown="chatEnter(event)">
+                    <button onclick="sendMessage()">إرسال</button>
+                </div>
+            </div>
+
+            <div id="voteSection" class="hidden">
+                <h2>🗳️ مرحلة التصويت والتخمين</h2>
+                <div class="notice">اختر الاسم الحقيقي المقابل لكل اسم مستعار. احذر تكرار الاختيارات!</div>
+                <div id="voteForm"></div>
+                <button onclick="submitVotes()" class="full-width top-margin">🔒 تأكيد وتثبيت التخمينات</button>
+                <div id="voteStatus" class="success"></div>
+            </div>
+
+            <div id="finalSection" class="hidden">
+                <h2>🎯 التوقع النهائي الحاسم</h2>
+                <div class="notice">بقي لاعبان فقط في القمة!<br>اختر الاسم الحقيقي الدقيق لمنافسك الأخير.</div>
+                <div id="finalOpponent"></div>
+                <select id="finalSelect">
+                    <option value="">اختر الاسم الحقيقي...</option>
+                </select>
+                <button onclick="submitFinalGuess()" class="full-width top-margin">🎯 تأكيد التوقع الأخير</button>
+                <div id="finalStatus" class="success"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ELIMINATION SUSPENSE -->
+    <section id="roundResultScreen" class="screen">
+        <div class="card elimination-card">
+            <div class="suspense-icon">🎭</div>
+            <div class="result-title" id="eliminationHeadline">من المستبعد؟</div>
+
+            <div id="suspenseBox" class="suspense-box">
+                <div class="suspense-text">جاري تحديد المستبعد...</div>
+                <div id="suspenseTimer" class="suspense-timer">5</div>
+                <div class="suspense-dots"><span></span><span></span><span></span></div>
+            </div>
+
+            <div id="revealedBox" class="hidden">
+                <div class="eliminated-label">🔴 تم استبعاد</div>
+                <div class="eliminated-name" id="eliminatedName">---</div>
+                <div class="notice">تم استبعاد هذا اللاعب من الجولة الحالية.<br>هويته الحقيقية تظل سرية حتى نهاية اللعبة!</div>
+                <div id="eliminationTimer" class="timer small-timer">10</div>
+                <p class="next-round-text">الجولة القادمة تبدأ تلقائياً...</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- FINAL GUESS RESULT -->
+    <section id="finalResultScreen" class="screen">
+        <div class="card final-result-card">
+            <div class="suspense-icon" id="finalResultIcon">🎯</div>
+            <div class="result-title" id="finalResultHeadline">لحظة الحسم...</div>
+
+            <div id="finalSuspenseBox" class="suspense-box">
+                <div class="suspense-text">هل كانت التوقعات صحيحة؟</div>
+                <div id="finalSuspenseTimer" class="suspense-timer">4</div>
+                <div class="suspense-dots"><span></span><span></span><span></span></div>
+            </div>
+
+            <div id="finalRevealBox" class="hidden">
+                <div id="finalRevealTitle" class="final-reveal-title"></div>
+                <div id="finalRevealPlayers" class="final-reveal-players"></div>
+                <div id="finalRetryNotice" class="notice hidden"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- SPECTATOR -->
+    <section id="spectatorScreen" class="screen">
+        <div class="card">
+            <div class="spectator-title">👁️ غرفة المشاهدين</div>
+            <div class="notice">
+                تم استبعادك من اللعبة.<br>
+                هويتك الحقيقية كانت:<br><br>
+                <strong id="myIdentity" class="identity-reveal"></strong><br><br>
+                يمكنك متابعة بقية اللاعبين بصمت أو الدردشة مع المستبعدين.
+            </div>
+
+            <h3>🗣️ محادثة الأحياء</h3>
+            <div id="spectatorChat" class="chat-box spectator-chat"></div>
+
+            <h3>👻 دردشة المستبعدين</h3>
+            <div id="deadChat" class="chat-box dead-chat"></div>
+
+            <div class="chat-input">
+                <input id="spectatorMessage" placeholder="دردش مع المستبعدين..." maxlength="300" onkeydown="spectatorEnter(event)">
+                <button onclick="sendSpectatorMessage()">إرسال</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- GAME OVER -->
+    <section id="resultScreen" class="screen">
+        <div class="card">
+            <h1>🏆 لوحة نتائج المعركة</h1>
+            <p class="subtitle">انتهت اللعبة وتم كشف جميع الأسرار والأوراق</p>
+
+            <div class="winner-banner">
+                <h2>👑 الفائزون بالبطولة</h2>
+                <div id="winnerText" class="winner-names">جاري التحديد...</div>
+            </div>
+
+            <h3>📊 جدول الترتيب النهائي والمراكز</h3>
+            <div id="rankingsList" class="rankings-list"></div>
+
+            <div class="buttons result-buttons">
+                <button onclick="returnToLobbyFromResult()">🏠 العودة إلى اللوبي</button>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/game.js"></script>
+</body>
+</html>
