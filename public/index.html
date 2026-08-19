@@ -656,25 +656,8 @@ input, select, textarea, button {
                 <button onclick="createRoom()">🏠 إنشاء غرفة جديدة</button>
             </div>
 
-            <hr>
-
-            <input id="roomCodeInput" placeholder="أدخل رمز الغرفة (4 أرقام)" maxlength="4">
-            <button onclick="joinRoom()" class="full-width">🚪 الانضمام للغرفة</button>
-            <div id="loginError" class="error"></div>
-        </div>
-    </section>
-
-    <!-- LOBBY -->
-    <section id="lobbyScreen" class="screen">
-        <div class="card">
-            <h2>🏠 غرفة الانتظار</h2>
-            <div id="roomCodeDisplay" class="room-code">----</div>
-            <p class="subtitle">شارك الرمز مع أصدقائك لبدء التحدي<br>👥 من 4 إلى 8 لاعبين</p>
-
-            <h3>👥 اللاعبون المتواجدون (<span id="lobbyPlayerCount">0</span>/8)</h3>
-            <div id="lobbyPlayers" class="players"></div>
-
-            <details class="lobby-guide" open>
+            <!-- شرح اللعبة في الصفحة الرئيسية -->
+            <details class="lobby-guide home-guide" open>
                 <summary>📖 شرح اللعبة وطريقة اللعب</summary>
                 <div class="lobby-guide-content">
                     <section>
@@ -708,6 +691,25 @@ input, select, textarea, button {
                     </section>
                 </div>
             </details>
+
+            <hr>
+
+            <input id="roomCodeInput" placeholder="أدخل رمز الغرفة (4 أرقام)" maxlength="4">
+            <button onclick="joinRoom()" class="full-width">🚪 الانضمام للغرفة</button>
+            <div id="loginError" class="error"></div>
+        </div>
+    </section>
+
+    <!-- LOBBY -->
+    <section id="lobbyScreen" class="screen">
+        <div class="card">
+            <h2>🏠 غرفة الانتظار</h2>
+            <div id="roomCodeDisplay" class="room-code">----</div>
+            <p class="subtitle">شارك الرمز مع أصدقائك لبدء التحدي<br>👥 من 4 إلى 8 لاعبين</p>
+
+            <h3>👥 اللاعبون المتواجدون (<span id="lobbyPlayerCount">0</span>/8)</h3>
+            <div id="lobbyPlayers" class="players"></div>
+
 
             <button type="button" class="back-home-btn" onclick="leaveLobbyToHome()">🔙 الرجوع للرئيسية</button>
 
