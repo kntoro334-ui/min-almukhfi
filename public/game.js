@@ -107,8 +107,24 @@ function updateProfileUI(level, xp) {
 function getGoogleProfile(){try{return JSON.parse(localStorage.getItem('si_googleProfile')||'null')}catch(_){return null}}
 function requestProgress(){const p=getGoogleProfile();if(p?.email||p?.sub)socket.emit('getProgress',{accountId:p.email||p.sub,email:p.email||''});}
 function renderChallenges(data){
-    const render=(list,id)=>{const box=document.getElementById(id);if(!box)return;box.innerHTML=list.map(c=>`<div class="challenge-item ${c.completed?'done':''}"><div class="challenge-top"><strong>${c.completed?'✅':'🎯'} ${escapeHtml(c.title)}</strong><span class="challenge-reward">+${c.reward} XP</span></div><div class="challenge-progress">${c.progress} / ${c.target}</div><div class="challenge-progress-bar"><div class="challenge-progress-fill" style="width:${Math.min(100,c.progress/c.target*100)}%"></div></div></div>`).join('')||'<div class="challenge-item">لا توجد تحديات.</div>'};
-    render(data.daily||[],'dailyChallengesList');render(data.weekly||[],'weeklyChallengesList');updateProfileUI(data.level,data.xp);
+    const render=(list,id)=>{
+        const box=document.getElementById(id);
+        if(!box)return;
+        box.innerHTML=(list||[]).map(c=>{
+            const progress=Math.min(Number(c.progress||0), Number(c.target||1));
+            const percent=Math.min(100, progress/Math.max(1,Number(c.target||1))*100);
+            return `<article class="challenge-item ${c.completed?'done':''}">
+                <div class="challenge-top"><strong>${c.completed?'✅':'🎯'} ${escapeHtml(c.title||'تحدي')}</strong><span class="challenge-reward">+${Number(c.reward||0)} XP</span></div>
+                <div class="challenge-desc">${escapeHtml(c.description||'أكمل الهدف لتحصل على XP.')}</div>
+                <div class="challenge-meta"><span>${progress} / ${c.target}</span><span>${c.completed?'مكتمل':'قيد التقدم'}</span></div>
+                <div class="challenge-progress-bar"><div class="challenge-progress-fill" style="width:${percent}%"></div></div>
+            </article>`;
+        }).join('')||'<div class="challenge-item">لا توجد تحديات حالياً.</div>';
+    };
+    render(data.daily||[],'dailyChallengesList');
+    render(data.weekly||[],'weeklyChallengesList');
+    updateProfileUI(data.level,data.xp);
+    updateAccountUI();
 }
 function switchChallengeTab(tab){
     document.getElementById('dailyChallengesList')?.classList.toggle('hidden',tab!=='daily');document.getElementById('weeklyChallengesList')?.classList.toggle('hidden',tab!=='weekly');
@@ -230,6 +246,7 @@ window.addEventListener("keydown", () => AudioManager.unlock(), { once:true });
 document.addEventListener("DOMContentLoaded", () => {
     restoreProfile();
     initGoogleLogin();
+    updateAccountUI();
 
     const real = document.getElementById("realName");
     const nick = document.getElementById("nickName");
@@ -315,14 +332,19 @@ async function initGoogleLogin() {
                 callback: handleGoogleCredential
             });
 
-            google.accounts.id.renderButton(container, {
-                theme: getGoogleButtonTheme(),
-                size: "large",
-                text: "signin_with",
-                shape: "rectangular",
-                width: 320,
-                locale: "ar"
-            });
+            window.renderGoogleLoginButton = () => {
+                if (!window.google?.accounts?.id || !container) return;
+                container.innerHTML = "";
+                google.accounts.id.renderButton(container, {
+                    theme: getGoogleButtonTheme(),
+                    size: "large",
+                    text: "signin_with",
+                    shape: "pill",
+                    width: 320,
+                    locale: "ar"
+                });
+            };
+            window.renderGoogleLoginButton();
         };
 
         waitForGoogle();
@@ -378,6 +400,36 @@ function handleGoogleCredential(response) {
     } catch (error) {
         showError("تعذر قراءة بيانات حساب Google.");
     }
+}
+
+function updateAccountUI() {
+    const profile = getGoogleProfile();
+    const status = document.getElementById("googleLoginStatus");
+    const logoutBtn = document.getElementById("googleLogoutBtn");
+    if (profile?.email || profile?.sub) {
+        if (status) status.textContent = `✅ مسجل: ${profile.email || profile.name || 'حساب Google'}`;
+        if (logoutBtn) logoutBtn.classList.remove("hidden");
+    } else {
+        if (status && !status.textContent.includes("لتفعيل")) status.textContent = "غير مسجل بحساب Google";
+        if (logoutBtn) logoutBtn.classList.add("hidden");
+    }
+}
+
+function logoutGoogleAccount() {
+    if (currentRoom) return showToast("⚠️ اخرج من الغرفة أولاً ثم سجّل الخروج.", "warning");
+    try {
+        if (window.google?.accounts?.id?.disableAutoSelect) google.accounts.id.disableAutoSelect();
+        if (window.google?.accounts?.id?.revoke) {
+            const profile = getGoogleProfile();
+            if (profile?.email) google.accounts.id.revoke(profile.email, () => {});
+        }
+    } catch (_) {}
+    localStorage.removeItem("si_googleProfile");
+    updateAccountUI();
+    updateProfileUI(1, 0);
+    const status = document.getElementById("googleLoginStatus");
+    if (status) status.textContent = "🚪 تم تسجيل الخروج. يمكنك تسجيل الدخول بحساب Google آخر.";
+    showToast("🚪 تم تسجيل الخروج من حساب Google.", "success");
 }
 
 console.log("Secret Identity جاهزة 🎭");
@@ -666,6 +718,8 @@ function setTheme(theme) {
         document.documentElement.removeAttribute("data-theme");
         localStorage.removeItem("secretIdentityTheme");
     }
+    // أعد رسم زر Google حتى يتوافق لونه مع الثيم الحالي.
+    if (typeof window.renderGoogleLoginButton === 'function') window.renderGoogleLoginButton();
 }
 
 const savedTheme = localStorage.getItem("secretIdentityTheme");
@@ -792,7 +846,7 @@ socket.on("kickedFromRoom", data => {
     currentRoom = "";
     isHost = false;
     showScreen("loginScreen");
-    showError(data?.message || "⛔ تم طردك من اللوبي.");
+    showToast(data?.message || "⛔ تم طردك من اللوبي.", "error");
 });
 
 socket.on("reconnectFailed", message => {
@@ -825,6 +879,11 @@ socket.on("lobbyUpdated", data => {
         real.className = "lobby-player-real-name";
         real.textContent = player.realName || "لا يوجد اسم";
         row.appendChild(real);
+
+        const level = document.createElement("span");
+        level.className = "lobby-level-badge";
+        level.textContent = `⭐ مستوى ${Number(player.level || 1)}`;
+        row.appendChild(level);
 
         if (isHost && player.id !== socket.id) {
             const kick = document.createElement("button");
@@ -984,7 +1043,10 @@ socket.on("phaseChanged", data => {
         submittedVote = false;
         document.getElementById("voteStatus").textContent = "";
 
-        buildVoteForm(data.players || data.aliveNickNames.map((nick, i) => ({ nickName: nick, realName: data.realNames?.[i] || "", avatar: data.avatars?.[i] || "" })));
+        buildVoteForm(
+            data.players || data.aliveNickNames.map((nick, i) => ({ nickName: nick, realName: data.realNames?.[i] || "", avatar: data.avatars?.[i] || "" })),
+            data.identityOptions || (data.realNames || []).map(real => ({ realName: real }))
+        );
     }
 });
 
@@ -1096,7 +1158,7 @@ function spectatorEnter(event) {
     if (event.key === "Enter") sendSpectatorMessage();
 }
 
-function buildVoteForm(players) {
+function buildVoteForm(players, identityOptions = []) {
     const form = document.getElementById("voteForm");
     form.innerHTML = "";
 
@@ -1106,10 +1168,10 @@ function buildVoteForm(players) {
         avatar: p.avatar || ""
     }));
 
-    const availableReals = normalizedPlayers
-        .map(p => p.realName)
+    const availableReals = (identityOptions || [])
+        .map(p => typeof p === "string" ? p : p.realName)
         .filter(Boolean)
-        .filter(real => real !== myRealName);
+        .filter((real, i, arr) => real !== myRealName && arr.indexOf(real) === i);
 
     normalizedPlayers
         .filter(player => player.nickName && player.nickName !== myNickName)
@@ -1298,7 +1360,12 @@ socket.on("finalGuessStarted", data => {
     const select = document.getElementById("finalSelect");
     select.innerHTML = `<option value="">اختر الاسم الحقيقي...</option>`;
 
-    const availableReals = data.realNames.filter(r => r !== myRealName);
+    const identityOptions = (data.identityOptions || data.realNames || []).map(item =>
+        typeof item === "string" ? item : item.realName
+    );
+    const availableReals = identityOptions
+        .filter(Boolean)
+        .filter((real, i, arr) => real !== myRealName && arr.indexOf(real) === i);
 
     availableReals.forEach(real => {
         select.appendChild(new Option(real, real));
@@ -1494,7 +1561,23 @@ socket.on("audioEvent", event => {
 
 socket.on("errorMsg", message => showError(message));
 
+function showToast(message, type = "info", duration = 3600) {
+    const container = document.getElementById("toastContainer");
+    if (!container) return;
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    toast.setAttribute("role", "status");
+    toast.textContent = String(message ?? "");
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => {
+        toast.classList.remove("show");
+        setTimeout(() => toast.remove(), 250);
+    }, Math.max(1200, duration));
+}
+
 function showError(message) {
+    showToast(message, "error");
     const error = document.getElementById("loginError");
     error.textContent = message;
 
