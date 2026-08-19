@@ -2,7 +2,18 @@ services:
   - type: web
     name: makhfi
     runtime: node
+    plan: standard
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /
     autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: makhfi-db
+          property: connectionString
+
+databases:
+  - name: makhfi-db
+    plan: basic-256mb
+    region: frankfurt
