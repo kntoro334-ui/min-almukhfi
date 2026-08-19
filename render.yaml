@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: min-almukhfi
+    name: makhfi
     runtime: node
     buildCommand: npm install
     startCommand: npm start
