@@ -33,6 +33,41 @@ app.use(express.static(path.join(__dirname, "public"), {
 }));
 
 // Pinterest helper: resolve a Pin URL to its og:image without storing/downloading the image.
+// Pinterest image proxy: keeps selected Pinterest avatars available as same-origin images.
+app.get("/api/pinterest-image", async (req, res) => {
+    try {
+        const raw = String(req.query?.url || "").trim();
+        if (!/^https?:\/\/\S+$/i.test(raw)) return res.status(400).send("Invalid image URL");
+        const target = new URL(raw);
+        const host = target.hostname.toLowerCase().replace(/^www\./, "");
+        const allowed = host === "pinimg.com" || host.endsWith(".pinimg.com") || host === "pinterest.com" || host.endsWith(".pinterest.com");
+        if (!allowed) return res.status(400).send("Image host is not allowed");
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        let response;
+        try {
+            response = await fetch(raw, {
+                redirect: "follow",
+                signal: controller.signal,
+                headers: {
+                    "user-agent": "Mozilla/5.0 (compatible; MakhfiBot/1.0)",
+                    "accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+                    "referer": "https://www.pinterest.com/"
+                }
+            });
+        } finally { clearTimeout(timeout); }
+        if (!response.ok) return res.status(502).send("Unable to fetch Pinterest image");
+        const contentType = response.headers.get("content-type") || "image/jpeg";
+        if (!contentType.toLowerCase().startsWith("image/")) return res.status(415).send("Not an image");
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        const buf = Buffer.from(await response.arrayBuffer());
+        return res.send(buf);
+    } catch (_) {
+        return res.status(500).send("Unable to proxy Pinterest image");
+    }
+});
+
 app.post("/api/pinterest-resolve", async (req, res) => {
     try {
         const raw = String(req.body?.url || "").trim();
