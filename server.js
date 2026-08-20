@@ -1345,36 +1345,23 @@ function resetRoomToLobby(roomCode) {
 }
 
 const PORT = Number(process.env.PORT) || 3000;
+(async () => {
+    // لا تجعل فشل PostgreSQL يمنع تشغيل الموقع على Render.
+    // إذا فشل الاتصال بقاعدة البيانات، نستخدم players.json كحل احتياطي.
+    try {
+        await initStorage();
+    } catch (error) {
+        console.error("⚠️ تعذر الاتصال بـ PostgreSQL، سيتم تشغيل السيرفر باستخدام data/players.json:", error?.message || error);
+        try { if (db) await db.end(); } catch (_) {}
+        db = null;
+        playerProfiles = loadFileProfiles();
+        storageReady = true;
+    }
 
-// لا تجعل فشل PostgreSQL يمنع Render من تشغيل الموقع.
-// إذا تعذر الاتصال بقاعدة البيانات عند الإقلاع، نستخدم players.json مؤقتاً
-// ونترك السيرفر يعمل بدلاً من الخروج بـ process.exit(1) والتسبب في 502.
-async function startServer() {
-    server.listen(PORT, '0.0.0.0', async () => {
+    // افتح المنفذ حتى لو تعذر التخزين الخارجي؛ Render يحتاج أن يرى السيرفر يستمع على PORT.
+    server.listen(PORT, '0.0.0.0', () => {
         console.log("🎭 مخفي Server v5");
         console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
-
-        try {
-            await initStorage();
-            console.log("✅ تم تشغيل التخزين بنجاح.");
-        } catch (error) {
-            console.error("❌ تعذر الاتصال بـ PostgreSQL عند الإقلاع:", error?.message || error);
-
-            // أغلق Pool الفاشل ثم انتقل إلى التخزين المحلي حتى لا يموت السيرفر.
-            if (db) {
-                try { await db.end(); } catch (_) {}
-                db = null;
-            }
-
-            playerProfiles = loadFileProfiles();
-            storageReady = true;
-            console.warn("⚠️ تم تشغيل اللعبة باستخدام data/players.json مؤقتاً.");
-            console.warn("⚠️ تأكد من أن DATABASE_URL وقاعدة makhfi-db في Render تعمل بشكل صحيح.");
-        }
+        console.log(`💾 Storage: ${db ? "PostgreSQL" : "data/players.json"}`);
     });
-}
-
-startServer().catch(error => {
-    console.error("❌ فشل تشغيل السيرفر:", error);
-    process.exit(1);
-});
+})();
