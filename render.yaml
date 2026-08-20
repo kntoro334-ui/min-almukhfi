@@ -5,7 +5,7 @@ services:
     plan: standard
     buildCommand: npm install
     startCommand: npm start
-    healthCheckPath: /healthz
+    healthCheckPath: /
     autoDeploy: true
     envVars:
       - key: DATABASE_URL
