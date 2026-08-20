@@ -38,7 +38,22 @@ document.addEventListener('DOMContentLoaded', () => {
     ids.forEach(id => document.getElementById(id+'Range')?.addEventListener('input', () => applyChatSettings(false)));
     loadChatSettings();
 
+    // إذا فتحت الإعدادات من اللوبي، اجعلها صفحة مستقلة في هذا التبويب الجديد.
+    const settingsPageMode = new URLSearchParams(window.location.search).get("settings") === "lobby";
+    if (settingsPageMode) {
+        document.body.classList.add("settings-page-mode");
+        modal?.classList.remove("hidden");
+        document.getElementById("settingsPageNotice")?.classList.remove("hidden");
+    }
+
 });
+
+function openLobbySettingsPage() {
+    // افتح نسخة مستقلة حتى تبقى الصفحة الرئيسية/إعداداتها كما هي.
+    const url = new URL(window.location.href);
+    url.searchParams.set("settings", "lobby");
+    window.open(url.toString(), "_blank", "noopener,noreferrer");
+}
 
 function applyChatSettings(updateLabels = true) {
     const get = id => Number(document.getElementById(id+'Range')?.value || 100);
@@ -665,6 +680,7 @@ async function previewPinterestImage() {
                     preview.classList.add("hidden");
                     if (error) error.textContent = "تعذر تحميل الصورة التي وجدها Pinterest.";
                 };
+                image.referrerPolicy = "no-referrer";
                 image.src = data.imageUrl;
             } catch (_) {
                 preview.classList.add("hidden");
@@ -683,6 +699,7 @@ async function previewPinterestImage() {
         preview.classList.add("hidden");
         if (error) error.textContent = "هذا الرابط لا يعرض صورة مباشرة. يمكنك أيضاً لصق رابط الـPin نفسه وسأحاول استخراج الصورة.";
     };
+    image.referrerPolicy = "no-referrer";
     image.src = url;
 }
 function usePinterestImage() {
