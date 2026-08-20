@@ -533,8 +533,26 @@ function restoreAvatarVisual(data) {
         custom.className = "avatar-circle selected saved-avatar";
         section.insertBefore(custom, label);
     }
-    custom.style.backgroundImage = /^https?:\/\//i.test(data) || String(data).startsWith("data:image") ? `url("${String(data).replace(/"/g, '\\"')}")` : "";
-    if (!custom.style.backgroundImage) custom.style.backgroundColor = data;
+    if (/^https?:\/\//i.test(String(data))) {
+        custom.innerHTML = "";
+        const img = document.createElement("img");
+        img.alt = "صورة الحساب";
+        img.referrerPolicy = "no-referrer";
+        img.src = getPinterestProxyUrl(String(data));
+        img.style.width = "100%";
+        img.style.height = "100%";
+        img.style.borderRadius = "50%";
+        img.style.objectFit = "cover";
+        custom.appendChild(img);
+        custom.onclick = function() { selectAvatar(this, String(data)); };
+        custom.style.backgroundImage = "";
+        custom.style.backgroundColor = "transparent";
+    } else if (String(data).startsWith("data:image")) {
+        custom.style.backgroundImage = `url("${String(data).replace(/"/g, '\\"')}")`;
+    } else {
+        custom.style.backgroundImage = "";
+        custom.style.backgroundColor = data;
+    }
 }
 
 
@@ -691,6 +709,29 @@ async function previewPinterestImage() {
     image.referrerPolicy = "no-referrer";
     image.src = url;
 }
+function getPinterestProxyUrl(url) {
+    return `/api/pinterest-image?url=${encodeURIComponent(url)}`;
+}
+
+function createPinterestAvatarOption(url) {
+    const customDiv = document.createElement("div");
+    customDiv.className = "avatar-circle selected pinterest-selected-avatar";
+    customDiv.title = "صورة Pinterest المختارة";
+    customDiv.dataset.avatar = url;
+    const img = document.createElement("img");
+    img.alt = "صورة Pinterest";
+    img.draggable = false;
+    img.referrerPolicy = "no-referrer";
+    img.src = getPinterestProxyUrl(url);
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.borderRadius = "50%";
+    img.style.objectFit = "cover";
+    customDiv.appendChild(img);
+    customDiv.onclick = function() { selectAvatar(this, url); };
+    return customDiv;
+}
+
 function usePinterestImage() {
     const input = document.getElementById("pinterestImageUrl");
     const image = document.getElementById("pinterestPreviewImage");
@@ -705,35 +746,36 @@ function usePinterestImage() {
         if (error) error.textContent = "لم تُجهّز الصورة بعد. انتظر ظهور المعاينة ثم اضغط «استخدام الصورة».";
         return;
     }
+
+    // Save the original image URL, while displaying it through our same-origin proxy.
     currentAvatarData = url;
     saveProfile();
-    document.querySelectorAll(".avatar-circle").forEach(el => el.classList.remove("selected"));
-    const customDiv = document.createElement("div");
-    customDiv.className = "avatar-circle selected pinterest-selected-avatar";
-    customDiv.style.backgroundImage = `url("${url.replace(/"/g, '\\"')}")`;
-    const pinterestAvatarUrl = url;
-    customDiv.onclick = function() { selectAvatar(this, pinterestAvatarUrl); };
-    const section = document.querySelector(".avatar-section");
-    const label = document.querySelector(".custom-avatar-label");
+    document.querySelectorAll("#loginScreen .avatar-circle").forEach(el => el.classList.remove("selected"));
+
+    const section = document.querySelector("#loginScreen .avatar-section");
+    const label = section?.querySelector(".custom-avatar-label");
     if (section && label) {
         const previous = section.querySelector(".pinterest-selected-avatar");
         if (previous) previous.remove();
+        const customDiv = createPinterestAvatarOption(url);
         section.insertBefore(customDiv, label);
     }
+
+    // Keep the lobby's avatar chooser in sync too.
     const lobbySection = document.querySelector(".lobby-avatar-section");
     const lobbyLabel = lobbySection?.querySelector(".custom-avatar-label");
     if (lobbySection && lobbyLabel) {
         const previousLobby = lobbySection.querySelector(".pinterest-selected-avatar");
         if (previousLobby) previousLobby.remove();
-        const lobbyDiv = document.createElement("div");
-        lobbyDiv.className = "avatar-circle selected pinterest-selected-avatar";
-        lobbyDiv.style.backgroundImage = `url("${url.replace(/"/g, '\\"')}")`;
-        const lobbyPinterestAvatarUrl = url;
-        lobbyDiv.onclick = function() { selectLobbyAvatar(this, lobbyPinterestAvatarUrl); };
+        const lobbyDiv = createPinterestAvatarOption(url);
+        lobbyDiv.onclick = function() { selectLobbyAvatar(this, url); };
         lobbySection.insertBefore(lobbyDiv, lobbyLabel);
     }
+
     closePinterestPicker();
-    if (!document.getElementById("lobbyProfileModal")?.classList.contains("hidden")) restoreLobbyAvatarVisual(currentAvatarData);
+    if (!document.getElementById("lobbyProfileModal")?.classList.contains("hidden")) {
+        restoreLobbyAvatarVisual(currentAvatarData);
+    }
 }
 document.addEventListener("keydown", event => {
     if (event.key === "Escape") closePinterestPicker();
