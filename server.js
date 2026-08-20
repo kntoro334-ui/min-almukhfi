@@ -1350,7 +1350,7 @@ const PORT = Number(process.env.PORT) || 3000;
         await initStorage();
         server.listen(PORT, '0.0.0.0', () => {
             console.log("🎭 مخفي Server v5");
-            console.log(`🌐 http://localhost:${PORT}`);
+            console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
         });
     } catch (error) {
         console.error("❌ فشل تهيئة التخزين:", error);
