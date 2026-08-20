@@ -12,12 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeChallengesBtn = document.getElementById('closeChallengesBtn');
 
     openBtn?.addEventListener('click', () => {
-        // من داخل اللوبي: افتح الإعدادات المتقدمة في صفحة مستقلة.
-        // من الصفحة الرئيسية: افتح نفس نافذة الإعدادات المعتادة.
-        if (typeof currentRoom !== 'undefined' && currentRoom) {
-            openLobbySettingsPage();
-            return;
-        }
+        // نفس نافذة الإعدادات في كل أجزاء اللعبة، سواء من الرئيسية أو من اللوبي.
         modal?.classList.remove('hidden');
     });
     closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
@@ -46,22 +41,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ids.forEach(id => document.getElementById(id+'Range')?.addEventListener('input', () => applyChatSettings(false)));
     loadChatSettings();
 
-    // إذا فتحت الإعدادات من اللوبي، اجعلها صفحة مستقلة في هذا التبويب الجديد.
-    const settingsPageMode = new URLSearchParams(window.location.search).get("settings") === "lobby";
-    if (settingsPageMode) {
-        document.body.classList.add("settings-page-mode");
-        modal?.classList.remove("hidden");
-        document.getElementById("settingsPageNotice")?.classList.remove("hidden");
-    }
-
 });
 
-function openLobbySettingsPage() {
-    // افتح نسخة مستقلة حتى تبقى الصفحة الرئيسية/إعداداتها كما هي.
-    const url = new URL(window.location.href);
-    url.searchParams.set("settings", "lobby");
-    window.open(url.toString(), "_blank", "noopener,noreferrer");
-}
 
 function applyChatSettings(updateLabels = true) {
     const get = id => Number(document.getElementById(id+'Range')?.value || 100);
