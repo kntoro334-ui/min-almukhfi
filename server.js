@@ -27,45 +27,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// Render health check: keep this endpoint tiny and independent of the database.
-app.get("/healthz", (_req, res) => {
-    res.status(200).json({ ok: true, service: "makhfi" });
-});
-
 app.use(express.static(path.join(__dirname, "public"), {
     maxAge: "1h",
     etag: true
 }));
-
-// Pinterest helper: resolve a Pin URL to its og:image without storing/downloading the image.
-app.post("/api/pinterest-resolve", async (req, res) => {
-    try {
-        const raw = String(req.body?.url || "").trim();
-        if (!/^https?:\/\/\S+$/i.test(raw)) return res.status(400).json({ error: "رابط غير صالح." });
-        const target = new URL(raw);
-        const host = target.hostname.toLowerCase().replace(/^www\./, "");
-        const allowed = host === "pinterest.com" || host.endsWith(".pinterest.com") || host === "pin.it";
-        if (!allowed) return res.status(400).json({ error: "أرسل رابط Pinterest فقط." });
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 7000);
-        let response;
-        try {
-            response = await fetch(raw, { redirect: "follow", signal: controller.signal, headers: { "user-agent": "Mozilla/5.0 (compatible; MakhfiBot/1.0)", "accept": "text/html,application/xhtml+xml" } });
-        } finally { clearTimeout(timeout); }
-        if (!response.ok) return res.status(502).json({ error: "تعذر فتح رابط Pinterest." });
-        const finalUrl = new URL(response.url);
-        const finalHost = finalUrl.hostname.toLowerCase().replace(/^www\./, "");
-        const finalAllowed = finalHost === "pinterest.com" || finalHost.endsWith(".pinterest.com") || finalHost === "pin.it";
-        if (!finalAllowed) return res.status(400).json({ error: "الرابط لم يعد رابط Pinterest بعد التحويل." });
-        const html = await response.text();
-        const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["'][^>]*>/i);
-        if (!match?.[1]) return res.status(404).json({ error: "لم أجد صورة لهذا الـPin. جرّب رابط صورة مباشر." });
-        const imageUrl = match[1].replace(/&amp;/g, "&").replace(/&#x2F;/gi, "/").trim();
-        if (!/^https?:\/\/\S+$/i.test(imageUrl)) return res.status(404).json({ error: "تعذر استخراج رابط الصورة." });
-        return res.json({ imageUrl });
-    } catch (_) { return res.status(500).json({ error: "تعذر معالجة رابط Pinterest حالياً." }); }
-});
-
 
 const rooms = {};
 const DATA_DIR = path.join(__dirname, "data");
@@ -75,7 +40,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // Production storage: Render Postgres via DATABASE_URL.
 // Local fallback: data/players.json so the game still runs during local development.
 const DATABASE_URL = process.env.DATABASE_URL || "";
-let db = DATABASE_URL ? new Pool({
+const db = DATABASE_URL ? new Pool({
     connectionString: DATABASE_URL,
     max: 10,
     idleTimeoutMillis: 30000,
@@ -401,11 +366,8 @@ io.on("connection", socket => {
         rooms[roomCode] = {
             host: socket.id,
             status: "LOBBY",
-            selectedChatDuration: DEFAULT_CHAT_DURATION,
-            selectedVoteDuration: DEFAULT_VOTE_DURATION,
             chatDuration: DEFAULT_CHAT_DURATION,
             voteDuration: DEFAULT_VOTE_DURATION,
-            gameNumber: 0,
 
             players: [
                 {
@@ -665,26 +627,15 @@ io.on("connection", socket => {
             );
         }
 
-        const requestedChatDuration =
-            parseInt(data.chatDuration, 10) || room.selectedChatDuration || DEFAULT_CHAT_DURATION;
-        const requestedVoteDuration =
-            parseInt(data.voteDuration, 10) || room.selectedVoteDuration || DEFAULT_VOTE_DURATION;
-
-        const selectionChanged =
-            requestedChatDuration !== room.selectedChatDuration ||
-            requestedVoteDuration !== room.selectedVoteDuration;
-
-        if (room.gameNumber === 0 || selectionChanged) {
-            room.selectedChatDuration = requestedChatDuration;
-            room.selectedVoteDuration = requestedVoteDuration;
-            room.gameNumber = 1;
-        } else {
-            room.gameNumber += 1;
+        if (data.chatDuration) {
+            room.chatDuration =
+                parseInt(data.chatDuration, 10) || DEFAULT_CHAT_DURATION;
         }
 
-        const reductionFactor = Math.pow(0.93, Math.max(0, room.gameNumber - 1));
-        room.chatDuration = Math.max(1, Math.floor(room.selectedChatDuration * reductionFactor));
-        room.voteDuration = Math.max(1, Math.floor(room.selectedVoteDuration * reductionFactor));
+        if (data.voteDuration) {
+            room.voteDuration =
+                parseInt(data.voteDuration, 10) || DEFAULT_VOTE_DURATION;
+        }
 
         room.status = "PLAYING";
         room.gameStartedAt = Date.now();
@@ -1320,8 +1271,6 @@ function resetRoomToLobby(roomCode) {
     room.phase = null;
     room.finalResolving = false;
     room.timerSeconds = 0;
-    room.chatDuration = room.selectedChatDuration || DEFAULT_CHAT_DURATION;
-    room.voteDuration = room.selectedVoteDuration || DEFAULT_VOTE_DURATION;
 
     const connected = room.players.filter(p => p.connected !== false);
     room.players.forEach(p => {
@@ -1350,38 +1299,15 @@ function resetRoomToLobby(roomCode) {
 }
 
 const PORT = Number(process.env.PORT) || 3000;
-
-function startServer() {
-    server.listen(PORT, "0.0.0.0", () => {
-        console.log("🎭 مخفي Server v6");
-        console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
-        console.log(`❤️ Health check: http://127.0.0.1:${PORT}/healthz`);
-    });
-}
-
-// Start listening first so Render can reach the health endpoint even if storage is
-// temporarily unavailable. Then initialize storage in the background.
-startServer();
-
 (async () => {
     try {
         await initStorage();
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log("🎭 مخفي Server v5");
+            console.log(`🌐 http://localhost:${PORT}`);
+        });
     } catch (error) {
-        console.error("❌ تعذر الاتصال بقاعدة البيانات عند الإقلاع:", error?.message || error);
-        // Safe fallback for deployment: keep the app online using the local JSON file.
-        if (db) {
-            try { await db.end(); } catch (_) {}
-            db = null;
-        }
-        playerProfiles = loadFileProfiles();
-        storageReady = true;
-        console.warn("⚠️ تم تشغيل الموقع بوضع حفظ الملف مؤقتاً.");
+        console.error("❌ فشل تهيئة التخزين:", error);
+        process.exit(1);
     }
 })();
-
-process.on("uncaughtException", (error) => {
-    console.error("❌ Uncaught exception:", error);
-});
-process.on("unhandledRejection", (reason) => {
-    console.error("❌ Unhandled rejection:", reason);
-});
