@@ -63,7 +63,7 @@ app.post("/api/pinterest-resolve", async (req, res) => {
             .replace(/&#39;|&apos;/gi, "'");
 
         function findMetaImage(markup) {
-            const tags = markup.match(/<meta\\b[^>]*>/gi) || [];
+            const tags = markup.match(/<meta\b[^>]*>/gi) || [];
             for (const tag of tags) {
                 const property = tag.match(/(?:property|name)\\s*=\\s*["']([^"']+)["']/i)?.[1]?.toLowerCase();
                 if (!property || !["og:image", "og:image:url", "twitter:image"].includes(property)) continue;
