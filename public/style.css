@@ -1241,3 +1241,44 @@ body{padding-bottom:75px}.settings-section{--settings-scale:1}.settings-control-
 .lobby-avatar-section .avatar-circle,.lobby-avatar-section .custom-avatar-label{width:54px;height:54px}
 .lobby-avatar-preview{display:flex;justify-content:center;min-height:94px;margin:6px 0 14px}
 .lobby-avatar-preview-image{width:88px!important;height:88px!important;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--accent-color);box-shadow:0 0 24px color-mix(in srgb,var(--accent-color) 30%,transparent)}
+
+
+/* صفحة إعدادات مستقلة تفتح من اللوبي بدون لمس صفحة اللعبة الأصلية */
+body.settings-page-mode {
+    min-height: 100vh;
+}
+body.settings-page-mode .container {
+    width: min(850px, 94%);
+}
+body.settings-page-mode .top-action-row,
+body.settings-page-mode .screen,
+body.settings-page-mode #bottomXpBar,
+body.settings-page-mode #challengesModal,
+body.settings-page-mode #lobbyProfileModal,
+body.settings-page-mode #pinterestPicker {
+    display: none !important;
+}
+body.settings-page-mode #settingsModal {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: transparent;
+    backdrop-filter: none;
+    padding: 20px;
+}
+body.settings-page-mode #settingsModal .avatar-modal-card {
+    width: min(700px, 100%);
+    max-height: calc(100vh - 40px);
+}
+.settings-page-notice {
+    background: rgba(96,165,250,.10);
+    border: 1px solid rgba(96,165,250,.25);
+    color: #bfdbfe;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.7;
+    margin: 10px 0 16px;
+}
+.settings-page-notice.hidden { display: none !important; }
