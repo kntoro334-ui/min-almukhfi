@@ -11,7 +11,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const openChallengesBtn = document.getElementById('openChallengesBtn');
     const closeChallengesBtn = document.getElementById('closeChallengesBtn');
 
-    openBtn?.addEventListener('click', () => { modal?.classList.remove('hidden'); });
+    openBtn?.addEventListener('click', () => {
+        // من داخل اللوبي: افتح الإعدادات المتقدمة في صفحة مستقلة.
+        // من الصفحة الرئيسية: افتح نفس نافذة الإعدادات المعتادة.
+        if (typeof currentRoom !== 'undefined' && currentRoom) {
+            openLobbySettingsPage();
+            return;
+        }
+        modal?.classList.remove('hidden');
+    });
     closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
     saveBtn?.addEventListener('click', () => { saveChatSettings(); modal?.classList.add('hidden'); });
 
@@ -722,7 +730,8 @@ function usePinterestImage() {
     const customDiv = document.createElement("div");
     customDiv.className = "avatar-circle selected pinterest-selected-avatar";
     customDiv.style.backgroundImage = `url("${url.replace(/"/g, '\\"')}")`;
-    customDiv.onclick = function() { selectAvatar(this, currentAvatarData); };
+    const pinterestAvatarUrl = url;
+    customDiv.onclick = function() { selectAvatar(this, pinterestAvatarUrl); };
     const section = document.querySelector(".avatar-section");
     const label = document.querySelector(".custom-avatar-label");
     if (section && label) {
@@ -738,7 +747,8 @@ function usePinterestImage() {
         const lobbyDiv = document.createElement("div");
         lobbyDiv.className = "avatar-circle selected pinterest-selected-avatar";
         lobbyDiv.style.backgroundImage = `url("${url.replace(/"/g, '\\"')}")`;
-        lobbyDiv.onclick = function() { selectLobbyAvatar(this, currentAvatarData); };
+        const lobbyPinterestAvatarUrl = url;
+        lobbyDiv.onclick = function() { selectLobbyAvatar(this, lobbyPinterestAvatarUrl); };
         lobbySection.insertBefore(lobbyDiv, lobbyLabel);
     }
     closePinterestPicker();
