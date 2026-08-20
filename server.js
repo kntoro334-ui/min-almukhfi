@@ -53,10 +53,46 @@ app.post("/api/pinterest-resolve", async (req, res) => {
         const finalAllowed = finalHost === "pinterest.com" || finalHost.endsWith(".pinterest.com") || finalHost === "pin.it";
         if (!finalAllowed) return res.status(400).json({ error: "الرابط لم يعد رابط Pinterest بعد التحويل." });
         const html = await response.text();
-        const match = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["'][^>]*>/i) || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["'][^>]*>/i);
-        if (!match?.[1]) return res.status(404).json({ error: "لم أجد صورة لهذا الـPin. جرّب رابط صورة مباشر." });
-        const imageUrl = match[1].replace(/&amp;/g, "&").replace(/&#x2F;/gi, "/").trim();
-        if (!/^https?:\/\/\S+$/i.test(imageUrl)) return res.status(404).json({ error: "تعذر استخراج رابط الصورة." });
+
+        // Pinterest يغيّر ترتيب خصائص meta أحياناً، لذلك لا نعتمد على
+        // ترتيب property/content داخل الوسم.
+        const decodeHtml = (value) => String(value || "")
+            .replace(/&amp;/gi, "&")
+            .replace(/&#x2F;|&#47;/gi, "/")
+            .replace(/&quot;/gi, '"')
+            .replace(/&#39;|&apos;/gi, "'");
+
+        function findMetaImage(markup) {
+            const tags = markup.match(/<meta\\b[^>]*>/gi) || [];
+            for (const tag of tags) {
+                const property = tag.match(/(?:property|name)\\s*=\\s*["']([^"']+)["']/i)?.[1]?.toLowerCase();
+                if (!property || !["og:image", "og:image:url", "twitter:image"].includes(property)) continue;
+                const content = tag.match(/content\\s*=\\s*["']([^"']+)["']/i)?.[1];
+                if (content) return decodeHtml(content).trim();
+            }
+            return "";
+        }
+
+        let imageUrl = findMetaImage(html);
+
+        // بعض صفحات Pinterest تضع الصورة داخل JSON المضمّن بدلاً من og:image.
+        if (!imageUrl) {
+            const jsonMatches = [
+                html.match(/"image_url"\s*:\s*"([^"]+)"/i),
+                html.match(/"url"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i)
+            ];
+            for (const m of jsonMatches) {
+                if (m?.[1]) {
+                    imageUrl = decodeHtml(m[1]).replace(/\\u002F/g, "/").replace(/\\\//g, "/");
+                    break;
+                }
+            }
+        }
+
+        if (!imageUrl || !/^https?:\/\/\S+$/i.test(imageUrl)) {
+            return res.status(404).json({ error: "لم أجد صورة لهذا الـPin. تأكد أن الرابط رابط Pin فعلي ثم جرّب مرة أخرى." });
+        }
+
         return res.json({ imageUrl });
     } catch (_) { return res.status(500).json({ error: "تعذر معالجة رابط Pinterest حالياً." }); }
 });
