@@ -27,6 +27,11 @@ app.use((req, res, next) => {
     next();
 });
 
+// Render health check: keep this endpoint tiny and independent of the database.
+app.get("/healthz", (_req, res) => {
+    res.status(200).json({ ok: true, service: "makhfi" });
+});
+
 app.use(express.static(path.join(__dirname, "public"), {
     maxAge: "1h",
     etag: true
@@ -70,7 +75,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // Production storage: Render Postgres via DATABASE_URL.
 // Local fallback: data/players.json so the game still runs during local development.
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const db = DATABASE_URL ? new Pool({
+let db = DATABASE_URL ? new Pool({
     connectionString: DATABASE_URL,
     max: 10,
     idleTimeoutMillis: 30000,
@@ -1345,15 +1350,38 @@ function resetRoomToLobby(roomCode) {
 }
 
 const PORT = Number(process.env.PORT) || 3000;
+
+function startServer() {
+    server.listen(PORT, "0.0.0.0", () => {
+        console.log("🎭 مخفي Server v6");
+        console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
+        console.log(`❤️ Health check: http://127.0.0.1:${PORT}/healthz`);
+    });
+}
+
+// Start listening first so Render can reach the health endpoint even if storage is
+// temporarily unavailable. Then initialize storage in the background.
+startServer();
+
 (async () => {
     try {
         await initStorage();
-        server.listen(PORT, '0.0.0.0', () => {
-            console.log("🎭 مخفي Server v5");
-            console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
-        });
     } catch (error) {
-        console.error("❌ فشل تهيئة التخزين:", error);
-        process.exit(1);
+        console.error("❌ تعذر الاتصال بقاعدة البيانات عند الإقلاع:", error?.message || error);
+        // Safe fallback for deployment: keep the app online using the local JSON file.
+        if (db) {
+            try { await db.end(); } catch (_) {}
+            db = null;
+        }
+        playerProfiles = loadFileProfiles();
+        storageReady = true;
+        console.warn("⚠️ تم تشغيل الموقع بوضع حفظ الملف مؤقتاً.");
     }
 })();
+
+process.on("uncaughtException", (error) => {
+    console.error("❌ Uncaught exception:", error);
+});
+process.on("unhandledRejection", (reason) => {
+    console.error("❌ Unhandled rejection:", reason);
+});
