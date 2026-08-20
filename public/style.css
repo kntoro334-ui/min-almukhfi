@@ -1243,3 +1243,13 @@ body{padding-bottom:75px}.settings-section{--settings-scale:1}.settings-control-
 .lobby-avatar-preview-image{width:88px!important;height:88px!important;border-radius:50%;background-size:cover;background-position:center;border:2px solid var(--accent-color);box-shadow:0 0 24px color-mix(in srgb,var(--accent-color) 30%,transparent)}
 
 
+
+/* Pinterest avatars render as real images so they remain visible even when Pinterest blocks hotlinked backgrounds. */
+.avatar-circle > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    pointer-events: none;
+}
