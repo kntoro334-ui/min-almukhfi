@@ -511,6 +511,7 @@ input, select, textarea, button {
             <button id="closeSettingsBtn" class="avatar-modal-close" aria-label="إغلاق">×</button>
             <h3>⚙️ لوحة الإعدادات والتحكم</h3>
             <p class="avatar-modal-help">خصص أطوال الشاشة، الثيمات، وحساب التسجيل الخاص بك من مكان واحد.</p>
+            <p id="settingsPageNotice" class="settings-page-notice hidden">ℹ️ هذه نسخة مستقلة من الإعدادات مفتوحة من اللوبي، ولن تغلق أو تغيّر نافذة الإعدادات الموجودة في الصفحة الرئيسية.</p>
             
             <!-- قسم حساب المستخدم والتسجيل -->
             <div class="settings-section">
@@ -623,7 +624,7 @@ input, select, textarea, button {
                     <button type="button" class="avatar-modal-close" onclick="closePinterestPicker()" aria-label="إغلاق">×</button>
                     <h3>📌 اختيار صورة من Pinterest</h3>
                     <p class="avatar-modal-help">
-                        افتح Pinterest وابحث عن الصورة التي تريدها، ثم انسخ <strong>رابط الـPin نفسه</strong> أو عنوان الصورة والصقه هنا.
+                        افتح Pinterest وابحث عن الصورة التي تريدها، ثم انسخ <strong>رابط الـPin نفسه</strong> أو رابط الصورة المباشر والصقه هنا.
                     </p>
 
                     <button type="button" class="pinterest-open-btn" onclick="openPinterest()">
@@ -763,6 +764,7 @@ input, select, textarea, button {
 
             <div class="lobby-actions-row">
                 <button type="button" class="lobby-profile-edit-btn" onclick="openLobbyProfileEditor()">✏️ تعديل الاسم والصورة</button>
+                <button type="button" class="lobby-settings-btn" onclick="openLobbySettingsPage()">⚙️ الإعدادات</button>
                 <button type="button" class="back-home-btn" onclick="leaveLobbyToHome()">🔙 الرجوع للرئيسية</button>
             </div>
 
