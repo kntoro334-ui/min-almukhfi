@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const openChallengesBtn = document.getElementById('openChallengesBtn');
     const closeChallengesBtn = document.getElementById('closeChallengesBtn');
 
-    openBtn?.addEventListener('click', () => { modal?.classList.remove('hidden'); });
+    openBtn?.addEventListener('click', () => { if (currentRoom) openLobbyProfileEditor(); else modal?.classList.remove('hidden'); });
     closeBtn?.addEventListener('click', () => modal?.classList.add('hidden'));
     saveBtn?.addEventListener('click', () => { saveChatSettings(); modal?.classList.add('hidden'); });
 
@@ -615,118 +615,97 @@ function openPinterest() {
     window.open("https://www.pinterest.com/", "_blank", "noopener,noreferrer");
 }
 
-function isPinterestPageUrl(url) {
-    try {
-        const u = new URL(url);
-        const host = u.hostname.toLowerCase().replace(/^www\./, "");
-        return host === "pinterest.com" || host.endsWith(".pinterest.com") || host === "pin.it";
-    } catch (_) { return false; }
-}
-
-let pinterestResolveTimer = null;
-let pinterestResolvedImageUrl = "";
-
-async function previewPinterestImage() {
+function previewPinterestImage() {
     const input = document.getElementById("pinterestImageUrl");
     const preview = document.getElementById("pinterestPreview");
     const image = document.getElementById("pinterestPreviewImage");
     const error = document.getElementById("pinterestError");
+
     if (!input || !preview || !image) return;
+
     const url = input.value.trim();
-    pinterestResolvedImageUrl = "";
-    if (!url) { preview.classList.add("hidden"); if (error) error.textContent = ""; return; }
+    if (!url) {
+        preview.classList.add("hidden");
+        if (error) error.textContent = "";
+        return;
+    }
+
     if (!/^https?:\/\/\S+$/i.test(url)) {
         preview.classList.add("hidden");
-        if (error) error.textContent = "ألصق رابط Pinterest أو رابط صورة صحيح يبدأ بـ https://";
+        if (error) error.textContent = "ألصق رابط صورة صحيح يبدأ بـ https://";
         return;
     }
-    if (isPinterestPageUrl(url)) {
-        if (error) error.textContent = "⏳ جارٍ جلب صورة الـPin...";
-        clearTimeout(pinterestResolveTimer);
-        pinterestResolveTimer = setTimeout(async () => {
-            try {
-                const res = await fetch("/api/pinterest-resolve", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ url })
-                });
-                const data = await res.json();
-                if (!res.ok || !data?.imageUrl) {
-                    preview.classList.add("hidden");
-                    if (error) error.textContent = data?.error || "تعذر العثور على صورة داخل رابط Pinterest.";
-                    return;
-                }
-                pinterestResolvedImageUrl = data.imageUrl;
-                image.onload = () => {
-                    preview.classList.remove("hidden");
-                    if (error) error.textContent = "✅ تم العثور على الصورة. اضغط «استخدام الصورة».";
-                };
-                image.onerror = () => {
-                    preview.classList.add("hidden");
-                    if (error) error.textContent = "تعذر تحميل الصورة التي وجدها Pinterest.";
-                };
-                image.src = data.imageUrl;
-            } catch (_) {
-                preview.classList.add("hidden");
-                if (error) error.textContent = "تعذر الاتصال بخادم Pinterest. جرّب رابط صورة مباشر.";
-            }
-        }, 250);
-        return;
-    }
+
     image.onload = () => {
-        pinterestResolvedImageUrl = url;
         preview.classList.remove("hidden");
-        if (error) error.textContent = "✅ تمت معاينة الصورة.";
+        if (error) error.textContent = "";
     };
+
     image.onerror = () => {
-        pinterestResolvedImageUrl = "";
         preview.classList.add("hidden");
-        if (error) error.textContent = "هذا الرابط لا يعرض صورة مباشرة. يمكنك أيضاً لصق رابط الـPin نفسه وسأحاول استخراج الصورة.";
+        if (error) {
+            error.textContent =
+                "هذا الرابط ليس رابط صورة مباشر. من Pinterest استخدم «نسخ عنوان الصورة» ثم الصقه هنا.";
+        }
     };
+
     image.src = url;
 }
+
 function usePinterestImage() {
     const input = document.getElementById("pinterestImageUrl");
     const image = document.getElementById("pinterestPreviewImage");
     const error = document.getElementById("pinterestError");
-    const rawUrl = input ? input.value.trim() : "";
-    const url = pinterestResolvedImageUrl || rawUrl;
+
+    const url = input ? input.value.trim() : "";
+
     if (!url || !/^https?:\/\/\S+$/i.test(url)) {
-        if (error) error.textContent = "ألصق رابط Pinterest أو رابط الصورة أولاً.";
+        if (error) error.textContent = "ألصق رابط الصورة أولاً.";
         return;
     }
+
     if (!image || !image.complete || !image.naturalWidth) {
-        if (error) error.textContent = "لم تُجهّز الصورة بعد. انتظر ظهور المعاينة ثم اضغط «استخدام الصورة».";
+        if (error) {
+            error.textContent =
+                "تعذر تحميل الصورة. تأكد أنك نسخت «عنوان الصورة» وليس رابط صفحة الـPin.";
+        }
         return;
     }
+
+    /*
+     * نخزن رابط الصورة مباشرة كأفاتار.
+     * بهذه الطريقة لا نحتاج تنزيل الصورة على السيرفر،
+     * ولا نحتاج صلاحيات Pinterest أو API key.
+     */
     currentAvatarData = url;
     saveProfile();
-    document.querySelectorAll(".avatar-circle").forEach(el => el.classList.remove("selected"));
+
+    document.querySelectorAll(".avatar-circle").forEach(el =>
+        el.classList.remove("selected")
+    );
+
     const customDiv = document.createElement("div");
     customDiv.className = "avatar-circle selected pinterest-selected-avatar";
     customDiv.style.backgroundImage = `url("${url.replace(/"/g, '\\"')}")`;
-    customDiv.onclick = function() { selectAvatar(this, currentAvatarData); };
+    customDiv.onclick = function() {
+        selectAvatar(this, currentAvatarData);
+    };
+
     const section = document.querySelector(".avatar-section");
     const label = document.querySelector(".custom-avatar-label");
+
     if (section && label) {
         const previous = section.querySelector(".pinterest-selected-avatar");
         if (previous) previous.remove();
         section.insertBefore(customDiv, label);
     }
-    const lobbySection = document.querySelector(".lobby-avatar-section");
-    const lobbyLabel = lobbySection?.querySelector(".custom-avatar-label");
-    if (lobbySection && lobbyLabel) {
-        const previousLobby = lobbySection.querySelector(".pinterest-selected-avatar");
-        if (previousLobby) previousLobby.remove();
-        const lobbyDiv = document.createElement("div");
-        lobbyDiv.className = "avatar-circle selected pinterest-selected-avatar";
-        lobbyDiv.style.backgroundImage = `url("${url.replace(/"/g, '\\"')}")`;
-        lobbyDiv.onclick = function() { selectLobbyAvatar(this, currentAvatarData); };
-        lobbySection.insertBefore(lobbyDiv, lobbyLabel);
-    }
+
     closePinterestPicker();
-    if (!document.getElementById("lobbyProfileModal")?.classList.contains("hidden")) restoreLobbyAvatarVisual(currentAvatarData);
+    if (!document.getElementById("lobbyProfileModal")?.classList.contains("hidden")) {
+        restoreLobbyAvatarVisual(currentAvatarData);
+    }
 }
+
 document.addEventListener("keydown", event => {
     if (event.key === "Escape") closePinterestPicker();
 });
