@@ -70,7 +70,7 @@ if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 // Production storage: Render Postgres via DATABASE_URL.
 // Local fallback: data/players.json so the game still runs during local development.
 const DATABASE_URL = process.env.DATABASE_URL || "";
-const db = DATABASE_URL ? new Pool({
+let db = DATABASE_URL ? new Pool({
     connectionString: DATABASE_URL,
     max: 10,
     idleTimeoutMillis: 30000,
@@ -1345,15 +1345,36 @@ function resetRoomToLobby(roomCode) {
 }
 
 const PORT = Number(process.env.PORT) || 3000;
-(async () => {
-    try {
-        await initStorage();
-        server.listen(PORT, '0.0.0.0', () => {
-            console.log("🎭 مخفي Server v5");
-            console.log(`🌐 http://localhost:${PORT}`);
-        });
-    } catch (error) {
-        console.error("❌ فشل تهيئة التخزين:", error);
-        process.exit(1);
-    }
-})();
+
+// لا تجعل فشل PostgreSQL يمنع Render من تشغيل الموقع.
+// إذا تعذر الاتصال بقاعدة البيانات عند الإقلاع، نستخدم players.json مؤقتاً
+// ونترك السيرفر يعمل بدلاً من الخروج بـ process.exit(1) والتسبب في 502.
+async function startServer() {
+    server.listen(PORT, '0.0.0.0', async () => {
+        console.log("🎭 مخفي Server v5");
+        console.log(`🌐 Server listening on 0.0.0.0:${PORT}`);
+
+        try {
+            await initStorage();
+            console.log("✅ تم تشغيل التخزين بنجاح.");
+        } catch (error) {
+            console.error("❌ تعذر الاتصال بـ PostgreSQL عند الإقلاع:", error?.message || error);
+
+            // أغلق Pool الفاشل ثم انتقل إلى التخزين المحلي حتى لا يموت السيرفر.
+            if (db) {
+                try { await db.end(); } catch (_) {}
+                db = null;
+            }
+
+            playerProfiles = loadFileProfiles();
+            storageReady = true;
+            console.warn("⚠️ تم تشغيل اللعبة باستخدام data/players.json مؤقتاً.");
+            console.warn("⚠️ تأكد من أن DATABASE_URL وقاعدة makhfi-db في Render تعمل بشكل صحيح.");
+        }
+    });
+}
+
+startServer().catch(error => {
+    console.error("❌ فشل تشغيل السيرفر:", error);
+    process.exit(1);
+});
